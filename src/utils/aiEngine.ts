@@ -1,11 +1,23 @@
-import type { Decision, GameTestData, TrendAnalysisResult } from '../types/gameTest';
+import type { AnalysisSettings, Decision, ExperimentItem, GameTestData, TrendAnalysisResult } from '../types/gameTest';
 
-interface GeminiInsightResponse {
-  executiveSummaryKor: string;
-  whatIsWorkingKor: string;
-  keyRiskKor: string;
-  whyItMattersKor: string;
-  recommendedDirectionKor: string;
+export interface GeminiAnalysisResponse {
+  decision: Decision;
+  confidence: number;
+  marketabilityScore?: number;
+  retentionScore?: number;
+  monetizationScore?: number;
+  korBottleneck: string;
+  korFocus: string;
+  decisionReasons: string[];
+  formulaSummary: string;
+  experimentPlan: ExperimentItem[];
+  aiInsight: {
+    executiveSummaryKor: string;
+    whatIsWorkingKor: string;
+    keyRiskKor: string;
+    whyItMattersKor: string;
+    recommendedDirectionKor: string;
+  };
 }
 
 export function isGeminiEnabled(): boolean {
@@ -13,11 +25,21 @@ export function isGeminiEnabled(): boolean {
   return Boolean(key && key !== 'your_gemini_api_key_here');
 }
 
-export async function generateGeminiInsight(
+export async function generateGeminiAnalysis(
   data: GameTestData,
-  decision: Decision,
+  settings: AnalysisSettings,
+  localContext: {
+    decision: Decision;
+    confidence: number;
+    marketabilityScore: number;
+    retentionScore: number;
+    monetizationScore: number;
+    decisionReasons: string[];
+    formulaSummary: string;
+    korBottleneck: string;
+  },
   trendData?: TrendAnalysisResult | null
-): Promise<GeminiInsightResponse | null> {
+): Promise<GeminiAnalysisResponse | null> {
   if (!isGeminiEnabled()) return null;
   try {
     const response = await fetch(
@@ -26,8 +48,8 @@ export async function generateGeminiInsight(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: buildPrompt(data, decision, trendData) }] }],
-          generationConfig: { temperature: 0.35, maxOutputTokens: 1200 },
+          contents: [{ parts: [{ text: buildPrompt(data, settings, localContext, trendData) }] }],
+          generationConfig: { temperature: 0.25, maxOutputTokens: 2400 },
         }),
       }
     );
@@ -35,9 +57,9 @@ export async function generateGeminiInsight(
     const payload = await response.json();
     const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     const json = text.match(/```json\s*([\s\S]*?)\s*```/)?.[1] ?? text;
-    return JSON.parse(json) as GeminiInsightResponse;
+    return normalizeGeminiResponse(JSON.parse(json));
   } catch (error) {
-    console.error('Gemini insight generation failed', error);
+    console.error('Gemini analysis generation failed', error);
     return null;
   }
 }
@@ -59,20 +81,97 @@ function optionalMetricLines(data: GameTestData): string {
   return lines.length > 0 ? lines.join('\n') : '- 추가 지표 없음';
 }
 
-function buildPrompt(data: GameTestData, decision: Decision, trendData?: TrendAnalysisResult | null): string {
+function settingsLines(settings: AnalysisSettings): string {
+  return Object.entries(settings.thresholds)
+    .map(([key, value]) => `- ${key}: good ${value.good}, watch ${value.watch}`)
+    .join('\n');
+}
+
+function normalizeDecision(value: unknown): Decision {
+  if (value === 'scale' || value === 'iterate' || value === 'kill') return value;
+  const lowered = String(value ?? '').toLowerCase();
+  if (lowered.includes('scale')) return 'scale';
+  if (lowered.includes('kill')) return 'kill';
+  return 'iterate';
+}
+
+function clampScore(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(parsed)));
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item ?? '').trim()).filter(Boolean);
+}
+
+function normalizeGeminiResponse(value: any): GeminiAnalysisResponse {
+  const insight = value?.aiInsight ?? value ?? {};
+  return {
+    decision: normalizeDecision(value?.decision),
+    confidence: clampScore(value?.confidence, 70),
+    marketabilityScore: Number.isFinite(Number(value?.marketabilityScore)) ? clampScore(value.marketabilityScore, 0) : undefined,
+    retentionScore: Number.isFinite(Number(value?.retentionScore)) ? clampScore(value.retentionScore, 0) : undefined,
+    monetizationScore: Number.isFinite(Number(value?.monetizationScore)) ? clampScore(value.monetizationScore, 0) : undefined,
+    korBottleneck: String(value?.korBottleneck ?? insight.keyRiskKor ?? 'Gemini 분석 결과 핵심 병목을 확인해야 합니다.'),
+    korFocus: String(value?.korFocus ?? value?.recommendedFocus ?? '핵심 KPI 개선'),
+    decisionReasons: asStringArray(value?.decisionReasons).slice(0, 6),
+    formulaSummary: String(value?.formulaSummary ?? 'Gemini가 KPI, 기준값, 동향 클러스터를 함께 검토해 결론을 도출했습니다.'),
+    experimentPlan: Array.isArray(value?.experimentPlan) ? value.experimentPlan.slice(0, 5).map((item: any, index: number) => ({
+      priority: Number(item?.priority) || index + 1,
+      experiment: String(item?.experiment ?? item?.experimentKor ?? '개선 실험'),
+      experimentKor: String(item?.experimentKor ?? item?.experiment ?? '개선 실험'),
+      targetKpi: String(item?.targetKpi ?? '핵심 KPI'),
+      expectedImpact: String(item?.expectedImpact ?? item?.expectedImpactKor ?? '개선 효과 확인'),
+      expectedImpactKor: String(item?.expectedImpactKor ?? item?.expectedImpact ?? '개선 효과 확인'),
+      owner: String(item?.owner ?? item?.ownerKor ?? 'PM'),
+      ownerKor: String(item?.ownerKor ?? item?.owner ?? 'PM'),
+    })) : [],
+    aiInsight: {
+      executiveSummaryKor: String(insight.executiveSummaryKor ?? 'Gemini 분석 요약을 생성하지 못했습니다.'),
+      whatIsWorkingKor: String(insight.whatIsWorkingKor ?? '상대적으로 유지할 강점을 추가 확인해야 합니다.'),
+      keyRiskKor: String(insight.keyRiskKor ?? value?.korBottleneck ?? '핵심 리스크를 추가 확인해야 합니다.'),
+      whyItMattersKor: String(insight.whyItMattersKor ?? '소프트 론칭 판단은 KPI와 유저 반응을 함께 해석해야 합니다.'),
+      recommendedDirectionKor: String(insight.recommendedDirectionKor ?? '우선순위가 높은 실험부터 재검증하세요.'),
+    },
+  };
+}
+
+function buildPrompt(
+  data: GameTestData,
+  settings: AnalysisSettings,
+  localContext: {
+    decision: Decision;
+    confidence: number;
+    marketabilityScore: number;
+    retentionScore: number;
+    monetizationScore: number;
+    decisionReasons: string[];
+    formulaSummary: string;
+    korBottleneck: string;
+  },
+  trendData?: TrendAnalysisResult | null
+): string {
   const trendSummary = trendData
     ? trendData.clusters.map((cluster) => `${cluster.name}: ${cluster.count}건, 부정 ${cluster.sentimentRatio}%, 태그 ${cluster.tags.join('/')}`).join('\n')
     : '동향 CSV 없음';
 
-  return `너는 캐주얼 게임 퍼블리싱 PM이다. 아래 KPI, 선택 입력 지표, 동향 요약을 바탕으로 한국어 인사이트만 JSON으로 작성하라.
+  const customPrompt = settings.customPrompt?.trim()
+    ? `\n사용자 추가 분석 지시:\n${settings.customPrompt.trim()}\n`
+    : '';
+
+  return `너는 캐주얼 게임 퍼블리싱 PM이자 데이터 분석가다. 아래 KPI, 기준값, 선택 지표, 동향 클러스터를 모두 사용해서 최종 퍼블리싱 판단까지 직접 내려라.
 
 중요:
 - 입력되지 않은 선택 지표는 판단 근거로 쓰지 마라.
-- 최종 결정(${decision.toUpperCase()}) 자체는 앱의 점수 엔진이 계산한 값이다. 너는 그 결정을 설명하고 다음 액션을 구체화한다.
+- 로컬 계산값은 참고용 검산 자료다. 최종 decision, confidence, decisionReasons, formulaSummary, experimentPlan, aiInsight는 네가 반환한 JSON을 앱이 우선 사용한다.
+- 단, 숫자와 기준값을 무시하고 감으로 판단하지 마라. 기준값 대비 어느 축이 약한지와 동향 클러스터가 그 판단을 강화/완화하는지 설명하라.
+- Scale은 확장 가능한 지표가 복수 축에서 확인될 때, Iterate는 개선 실험 후 재검증이 필요할 때, Kill은 유입/잔존/수익화/유저 반응이 구조적으로 약할 때만 선택하라.
 
 게임: ${data.gameName}
 장르: ${data.gameGenre}
-결정: ${decision.toUpperCase()}
+테스트 기간: ${data.testPeriod}
 
 기본 KPI:
 - CPI: $${data.cpi}
@@ -85,15 +184,49 @@ function buildPrompt(data: GameTestData, decision: Decision, trendData?: TrendAn
 선택 입력 지표:
 ${optionalMetricLines(data)}
 
+사용 중인 기준값:
+${settingsLines(settings)}
+
+로컬 검산 참고:
+- 로컬 후보 결정: ${localContext.decision.toUpperCase()} / 신뢰도 ${localContext.confidence}%
+- 시장성/리텐션/수익화 참고 점수: ${localContext.marketabilityScore}/${localContext.retentionScore}/${localContext.monetizationScore}
+- 로컬 점수식: ${localContext.formulaSummary}
+- 로컬 병목: ${localContext.korBottleneck}
+- 로컬 근거: ${localContext.decisionReasons.join(' | ')}
+
 동향 클러스터:
 ${trendSummary}
+${customPrompt}
 
 반드시 아래 JSON 형식만 반환:
 {
+  "decision": "scale | iterate | kill",
+  "confidence": 0,
+  "marketabilityScore": 0,
+  "retentionScore": 0,
+  "monetizationScore": 0,
+  "korBottleneck": "...",
+  "korFocus": "...",
+  "decisionReasons": ["...", "...", "..."],
+  "formulaSummary": "점수식과 판단식을 한국어로 설명",
+  "experimentPlan": [
+    {
+      "priority": 1,
+      "experiment": "...",
+      "experimentKor": "...",
+      "targetKpi": "...",
+      "expectedImpact": "...",
+      "expectedImpactKor": "...",
+      "owner": "...",
+      "ownerKor": "..."
+    }
+  ],
+  "aiInsight": {
   "executiveSummaryKor": "...",
   "whatIsWorkingKor": "...",
   "keyRiskKor": "...",
   "whyItMattersKor": "...",
   "recommendedDirectionKor": "..."
+  }
 }`;
 }

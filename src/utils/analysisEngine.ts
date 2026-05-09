@@ -1,7 +1,7 @@
 import type { AnalysisResult, AnalysisSettings, Decision, ExperimentItem, GameTestData, KpiCard, TrendAnalysisResult } from '../types/gameTest';
 import { DEFAULT_SETTINGS } from '../types/gameTest';
 import { calcMarketabilityScore, calcMonetizationScore, calcRetentionScore, calcWeightedScore, getKpiStatus, hasMetric } from './scoring';
-import { generateGeminiInsight, isGeminiEnabled } from './aiEngine';
+import { generateGeminiAnalysis, isGeminiEnabled } from './aiEngine';
 
 const kpiMeta: Record<KpiCard['key'], { name: string; korName: string; unit: string; optional?: boolean }> = {
   cpi: { name: 'CPI', korName: '설치 비용', unit: '$' },
@@ -209,27 +209,71 @@ export async function analyzeGame(
   const korBottleneck = findBottleneck(marketabilityScore, retentionScore, monetizationScore, data);
   const experimentPlan = buildExperiments(data, decisionResult.decision, trendData);
   let aiInsight = insight(data, decisionResult.decision, korBottleneck, trendData);
+  let decision = decisionResult.decision;
+  let confidence = decisionResult.confidence;
+  let mainBottleneck = korBottleneck;
+  let recommendedFocus = decisionResult.decision === 'scale' ? 'UA 확장' : decisionResult.decision === 'iterate' ? '핵심 KPI와 동향 클러스터 개선' : '코어 루프 재설계';
+  let finalMarketabilityScore = marketabilityScore;
+  let finalRetentionScore = retentionScore;
+  let finalMonetizationScore = monetizationScore;
+  let finalExperimentPlan = experimentPlan;
+  let decisionReasons = decisionResult.reasons;
+  let formulaSummary = decisionResult.formula;
 
   if (isGeminiEnabled()) {
-    const gemini = await generateGeminiInsight(data, decisionResult.decision, trendData);
-    if (gemini) aiInsight = { ...aiInsight, ...gemini };
+    const gemini = await generateGeminiAnalysis(
+      data,
+      settings,
+      {
+        decision: decisionResult.decision,
+        confidence: decisionResult.confidence,
+        marketabilityScore,
+        retentionScore,
+        monetizationScore,
+        decisionReasons: decisionResult.reasons,
+        formulaSummary: decisionResult.formula,
+        korBottleneck,
+      },
+      trendData
+    );
+    if (gemini) {
+      decision = gemini.decision;
+      confidence = gemini.confidence;
+      mainBottleneck = gemini.korBottleneck;
+      recommendedFocus = gemini.korFocus;
+      finalMarketabilityScore = gemini.marketabilityScore ?? marketabilityScore;
+      finalRetentionScore = gemini.retentionScore ?? retentionScore;
+      finalMonetizationScore = gemini.monetizationScore ?? monetizationScore;
+      finalExperimentPlan = gemini.experimentPlan.length > 0 ? gemini.experimentPlan : buildExperiments(data, gemini.decision, trendData);
+      decisionReasons = gemini.decisionReasons.length > 0 ? gemini.decisionReasons : decisionResult.reasons;
+      formulaSummary = gemini.formulaSummary;
+      aiInsight = {
+        ...aiInsight,
+        ...gemini.aiInsight,
+        executiveSummary: `${data.gameName} is classified as ${gemini.decision.toUpperCase()} by Gemini using KPI, benchmark, and trend signals.`,
+        whatIsWorking: gemini.aiInsight.whatIsWorkingKor,
+        keyRisk: gemini.aiInsight.keyRiskKor,
+        whyItMatters: gemini.aiInsight.whyItMattersKor,
+        recommendedDirection: gemini.aiInsight.recommendedDirectionKor,
+      };
+    }
   }
 
   const partial = {
-    decision: decisionResult.decision,
-    confidence: decisionResult.confidence,
-    mainBottleneck: korBottleneck,
-    korBottleneck,
-    recommendedFocus: decisionResult.decision === 'scale' ? 'UA 확장' : decisionResult.decision === 'iterate' ? '핵심 KPI와 동향 클러스터 개선' : '코어 루프 재설계',
-    korFocus: decisionResult.decision === 'scale' ? 'UA 확장' : decisionResult.decision === 'iterate' ? '핵심 KPI와 동향 클러스터 개선' : '코어 루프 재설계',
-    marketabilityScore,
-    retentionScore,
-    monetizationScore,
+    decision,
+    confidence,
+    mainBottleneck,
+    korBottleneck: mainBottleneck,
+    recommendedFocus,
+    korFocus: recommendedFocus,
+    marketabilityScore: finalMarketabilityScore,
+    retentionScore: finalRetentionScore,
+    monetizationScore: finalMonetizationScore,
     kpiCards: buildKpiCards(data, settings),
     aiInsight,
-    experimentPlan,
-    decisionReasons: decisionResult.reasons,
-    formulaSummary: decisionResult.formula,
+    experimentPlan: finalExperimentPlan,
+    decisionReasons,
+    formulaSummary,
   };
   const summary = meetingSummary(data, partial);
   return { ...partial, meetingSummary: summary.eng, meetingSummaryKor: summary.kor };
