@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import Header from './components/Header';
 import InputPanel from './components/InputPanel';
-import TrendAnalysis from './components/TrendAnalysis';
 import DecisionSummary from './components/DecisionSummary';
 import KpiHealthDashboard from './components/KpiHealthDashboard';
 import ChartSection from './components/ChartSection';
@@ -10,21 +9,21 @@ import ExperimentPlan from './components/ExperimentPlan';
 import MeetingSummary from './components/MeetingSummary';
 import type { AnalysisResult, AnalysisSettings, GameTestData, TrendAnalysisResult } from './types/gameTest';
 import { DEFAULT_SETTINGS } from './types/gameTest';
-import { sampleGames } from './data/sampleGames';
 import { analyzeGame } from './utils/analysisEngine';
 import './index.css';
 
-const loadingSteps = ['KPI 점수 계산 중', '리텐션 병목 확인 중', '동향 클러스터 반영 중', '회의용 요약문 작성 중'];
+const loadingSteps = ['Raw data 검산 중', '동향 클러스터 반영 중', 'Gemini 분석 요청 중', '실행 계획 작성 중'];
 
 export default function App() {
-  const [inputData, setInputData] = useState<GameTestData>(sampleGames[0].data);
-  const [settings, setSettings] = useState<AnalysisSettings>(DEFAULT_SETTINGS);
+  const [inputData, setInputData] = useState<GameTestData | null>(null);
+  const [settings] = useState<AnalysisSettings>(DEFAULT_SETTINGS);
   const [trendData, setTrendData] = useState<TrendAnalysisResult | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
 
   const handleAnalyze = async () => {
+    if (!inputData) return;
     setIsLoading(true);
     setResult(null);
     for (const step of loadingSteps) {
@@ -43,25 +42,23 @@ export default function App() {
       <InputPanel
         data={inputData}
         onChange={setInputData}
+        onTrendDataChange={setTrendData}
         onAnalyze={handleAnalyze}
         isLoading={isLoading}
         loadingStep={loadingStep}
-        settings={settings}
-        onSettingsChange={setSettings}
       />
-      <TrendAnalysis onTrendDataChange={setTrendData} />
       {result ? (
         <div id="results" className="results-stack">
           <DecisionSummary result={result} />
           <KpiHealthDashboard kpiCards={result.kpiCards} />
-          <ChartSection result={result} gameName={inputData.gameName} />
+          <ChartSection result={result} gameName={inputData?.gameName ?? '업로드 게임'} />
           <AiInsightSection insight={result.aiInsight} />
           <ExperimentPlan experiments={result.experimentPlan} />
           <MeetingSummary summaryKor={result.meetingSummaryKor} summaryEng={result.meetingSummary} />
         </div>
       ) : (
         <section className="page-shell">
-          <div className="empty-panel strong">아직 분석 결과가 없습니다. KPI와 동향을 입력한 뒤 AI 인사이트 생성을 눌러주세요.</div>
+          <div className="empty-panel strong">Raw Data CSV를 업로드하면 분석 결과가 여기에 표시됩니다.</div>
         </section>
       )}
       <footer>Game Test Insight Copilot · Supercent AI Prototype</footer>

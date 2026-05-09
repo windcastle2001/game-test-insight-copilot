@@ -66,7 +66,7 @@ function determineDecision(
   );
   const trendAdjust = trendData?.applyToAnalysis ? trendData.confidenceAdjustment : 0;
   const optionalUsed = kpiCards.filter((card) => kpiMeta[card.key].optional).map((card) => card.korName);
-  const formula = `종합점수 ${weightedScore} = 시장성 ${marketability} x ${settings.weights.marketability}% + 리텐션 ${retention} x ${settings.weights.retention}% + 수익화 ${monetization} x ${settings.weights.monetization}%, 동향 보정 ${trendAdjust > 0 ? '+' : ''}${trendAdjust}%p`;
+  const formula = `시장성 ${marketability}점, 리텐션 ${retention}점, 수익화 ${monetization}점을 기준값과 비교했고 동향 신호는 신뢰도에 ${trendAdjust > 0 ? '+' : ''}${trendAdjust}%p 반영했습니다.`;
 
   if (allRetentionRisk || (marketability < 40 && retention < 40)) {
     return {
@@ -182,7 +182,7 @@ function meetingSummary(data: GameTestData, result: Omit<AnalysisResult, 'meetin
 판정 근거
 ${result.decisionReasons.map((reason) => `- ${reason}`).join('\n')}
 
-점수식
+판단 근거
 ${result.formulaSummary}
 
 핵심 병목
@@ -219,9 +219,13 @@ export async function analyzeGame(
   let finalExperimentPlan = experimentPlan;
   let decisionReasons = decisionResult.reasons;
   let formulaSummary = decisionResult.formula;
+  let aiProvider: AnalysisResult['aiProvider'] = 'local-fallback';
+  let aiStatusMessage = isGeminiEnabled()
+    ? 'Gemini 응답을 기다리는 동안 로컬 분석을 준비했습니다.'
+    : 'Gemini API 키가 설정되지 않아 로컬 분석으로 대체했습니다.';
 
   if (isGeminiEnabled()) {
-    const gemini = await generateGeminiAnalysis(
+    const geminiResult = await generateGeminiAnalysis(
       data,
       settings,
       {
@@ -236,7 +240,10 @@ export async function analyzeGame(
       },
       trendData
     );
+    aiStatusMessage = geminiResult.statusMessage;
+    const gemini = geminiResult.analysis;
     if (gemini) {
+      aiProvider = 'gemini';
       decision = gemini.decision;
       confidence = gemini.confidence;
       mainBottleneck = gemini.korBottleneck;
@@ -274,6 +281,8 @@ export async function analyzeGame(
     experimentPlan: finalExperimentPlan,
     decisionReasons,
     formulaSummary,
+    aiProvider,
+    aiStatusMessage,
   };
   const summary = meetingSummary(data, partial);
   return { ...partial, meetingSummary: summary.eng, meetingSummaryKor: summary.kor };

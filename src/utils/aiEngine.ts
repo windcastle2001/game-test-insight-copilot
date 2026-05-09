@@ -20,6 +20,11 @@ export interface GeminiAnalysisResponse {
   };
 }
 
+export interface GeminiAnalysisResult {
+  analysis: GeminiAnalysisResponse | null;
+  statusMessage: string;
+}
+
 export function isGeminiEnabled(): boolean {
   const key = import.meta.env.VITE_GEMINI_API_KEY;
   return Boolean(key && key !== 'your_gemini_api_key_here');
@@ -39,8 +44,8 @@ export async function generateGeminiAnalysis(
     korBottleneck: string;
   },
   trendData?: TrendAnalysisResult | null
-): Promise<GeminiAnalysisResponse | null> {
-  if (!isGeminiEnabled()) return null;
+): Promise<GeminiAnalysisResult> {
+  if (!isGeminiEnabled()) return { analysis: null, statusMessage: 'Gemini API 키가 설정되지 않아 로컬 분석으로 대체했습니다.' };
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
@@ -53,14 +58,17 @@ export async function generateGeminiAnalysis(
         }),
       }
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      return { analysis: null, statusMessage: `Gemini 호출 실패: HTTP ${response.status}${message ? ` - ${message.slice(0, 160)}` : ''}` };
+    }
     const payload = await response.json();
     const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const json = text.match(/```json\s*([\s\S]*?)\s*```/)?.[1] ?? text;
-    return normalizeGeminiResponse(JSON.parse(json));
+    const json = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)?.[1] ?? text;
+    return { analysis: normalizeGeminiResponse(JSON.parse(json.trim())), statusMessage: 'Gemini API가 KPI, raw data, 동향을 사용해 최종 분석을 생성했습니다.' };
   } catch (error) {
     console.error('Gemini analysis generation failed', error);
-    return null;
+    return { analysis: null, statusMessage: `Gemini 응답 처리 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}` };
   }
 }
 
@@ -190,7 +198,7 @@ ${settingsLines(settings)}
 로컬 검산 참고:
 - 로컬 후보 결정: ${localContext.decision.toUpperCase()} / 신뢰도 ${localContext.confidence}%
 - 시장성/리텐션/수익화 참고 점수: ${localContext.marketabilityScore}/${localContext.retentionScore}/${localContext.monetizationScore}
-- 로컬 점수식: ${localContext.formulaSummary}
+- 로컬 판단 요약: ${localContext.formulaSummary}
 - 로컬 병목: ${localContext.korBottleneck}
 - 로컬 근거: ${localContext.decisionReasons.join(' | ')}
 
@@ -208,7 +216,7 @@ ${customPrompt}
   "korBottleneck": "...",
   "korFocus": "...",
   "decisionReasons": ["...", "...", "..."],
-  "formulaSummary": "점수식과 판단식을 한국어로 설명",
+  "formulaSummary": "KPI와 동향을 종합한 판단 근거 요약",
   "experimentPlan": [
     {
       "priority": 1,

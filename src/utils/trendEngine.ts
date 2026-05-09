@@ -248,24 +248,3 @@ export function parseTrendCsvRows(rows: Record<string, string>[]): { rows: Trend
 export function generateTrendCsvTemplate(): string {
   return ['date,source,title,content,category', ',,,,'].join('\n');
 }
-
-export function generateTrendSampleCsv(): string {
-  const rows = [
-    ['2026-05-01', 'Google Play', '광고 뭐임', '재밌긴 한데 한판 끝날때마다 광고 나오는 느낌이라 흐름 끊김 ㅠ 보상 광고는 괜찮은데 강제는 좀...', 'user_review'],
-    ['2026-05-01', 'Apple App Store', '처음에 뭘 하라는지', '튜토리얼이 설명은 많은데 막상 내가 조작하는 시간이 늦어요. 3분쯤 하다가 그냥 닫음', 'user_review'],
-    ['2026-05-02', 'Official Community', '3챕 보스', '나만 3챕 보스에서 갑자기 벽 느낌? 그 전까진 할만했는데 여기서 몇번 죽고 삭제함', 'community'],
-    ['2026-05-02', 'Google Play', '귀엽다', '캐릭터 귀엽고 터지는 이펙트 좋음. 근데 발열이 좀 있고 광고 보고 나면 가끔 멈춤', 'user_review'],
-    ['2026-05-03', 'Apple App Store', '결제창 너무 빨리 뜸', '시작한지 얼마 안됐는데 패키지부터 보여줘서 살짝 부담. 게임은 가볍게 하기 좋음', 'user_review'],
-    ['2026-05-03', 'Official Community', '일퀘 보상은 괜찮음', '출석이랑 무료 뽑기 때문에 다음날 다시 들어오긴 했음. 근데 할게 금방 비슷해짐', 'community'],
-    ['2026-05-04', 'Google Play', '광고랑 게임이 좀 다름', '광고 영상 보고 깔았는데 실제 플레이는 더 단순함. 스토어 스샷도 약간 과장된듯', 'user_review'],
-    ['2026-05-04', 'Apple App Store', '렉?', '아이폰 12인데 중간중간 터치 씹힘. 광고 끝난 다음에 소리도 이상하게 남음', 'user_review'],
-    ['2026-05-05', 'Official Community', '스테이지가 비슷', '15판 정도 하니까 목표가 거의 똑같아서 졸림. 새 기믹이 더 빨리 나왔으면', 'community'],
-    ['2026-05-05', 'Google Play', '생각보다 중독', '처음엔 별 기대 없었는데 콤보 터질 때 손맛 있음. 광고만 줄이면 계속 할듯', 'user_review'],
-  ];
-  while (rows.length < 50) {
-    const base = rows[rows.length % 10];
-    const day = String((rows.length % 24) + 1).padStart(2, '0');
-    rows.push([`2026-05-${day}`, base[1], `${base[2]} ${rows.length + 1}`, base[3], base[4]]);
-  }
-  return ['date,source,title,content,category', ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
-}

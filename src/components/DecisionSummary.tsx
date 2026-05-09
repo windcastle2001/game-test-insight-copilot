@@ -49,7 +49,8 @@ export default function DecisionSummary({ result }: Props) {
         ))}
       </div>
       <div className="reason-panel">
-        <strong>왜 이 결정인가</strong>
+        <strong>AI 판단 근거</strong>
+        <p>{result.aiStatusMessage}</p>
         <p>{result.formulaSummary}</p>
         {result.decisionReasons.map((reason) => <span key={reason}>{reason}</span>)}
       </div>

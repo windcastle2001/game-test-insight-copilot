@@ -1,4 +1,4 @@
-import type { GameTestData, RawDataParseResult, RawDataRow } from '../types/gameTest';
+import type { GameGenre, GameTestData, RawDataParseResult, RawDataRow } from '../types/gameTest';
 
 function parseNum(value: string | undefined): number {
   if (!value) return 0;
@@ -44,9 +44,25 @@ function validateRawRows(rows: Record<string, string>[]): string[] {
   return warnings.slice(0, 14);
 }
 
+function firstText(rows: Record<string, string>[], key: string): string {
+  return rows.map(normalizeRow).map((row) => row[key]?.trim()).find(Boolean) ?? '';
+}
+
+function parseGenre(value: string): GameGenre | undefined {
+  if (value === '하이퍼캐주얼' || value === '하이브리드캐주얼' || value === '캐주얼') return value;
+  const lower = value.toLowerCase();
+  if (lower.includes('hybrid')) return '하이브리드캐주얼';
+  if (lower.includes('hyper')) return '하이퍼캐주얼';
+  if (lower.includes('casual')) return '캐주얼';
+  return undefined;
+}
+
 export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseResult {
   const warnings = validateRawRows(rows);
   const parsed: RawDataRow[] = rows.map(normalizeRow).map((row) => ({
+    game_name: row.game_name ?? '',
+    game_genre: row.game_genre ?? '',
+    test_period: row.test_period ?? '',
     date: row.date ?? '',
     campaign_name: row.campaign_name ?? '',
     impressions: parseNum(row.impressions),
@@ -73,6 +89,10 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
     ad_completes: parseNum(row.ad_completes),
     store_page_views: parseNum(row.store_page_views),
     store_installs: parseNum(row.store_installs),
+    trend_source: row.trend_source ?? row.source ?? '',
+    trend_title: row.trend_title ?? row.title ?? '',
+    trend_content: row.trend_content ?? row.content ?? row.review_content ?? '',
+    trend_category: row.trend_category ?? row.category ?? '',
   }));
 
   const sum = (key: keyof RawDataRow) => parsed.reduce((total, row) => total + Number(row[key] || 0), 0);
@@ -105,6 +125,9 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
     rows: parsed,
     rowCount: parsed.length,
     campaigns: [...new Set(parsed.map((row) => row.campaign_name).filter(Boolean))],
+    gameName: firstText(rows, 'game_name'),
+    gameGenre: parseGenre(firstText(rows, 'game_genre')),
+    testPeriod: firstText(rows, 'test_period'),
     calculatedKpis: {
       cpi: installs > 0 ? Math.round((spend / installs) * 1000) / 1000 : 0,
       ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
@@ -122,15 +145,8 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
 
 export function generateRawDataTemplate(): string {
   return [
-    'date,campaign_name,impressions,clicks,installs,spend_usd,dau,new_users,revenue_usd,ad_revenue_usd,iap_revenue_usd,avg_session_minutes,cohort_date,d1_active_users,d3_active_users,d7_active_users,d14_active_users,d30_active_users,tutorial_starts,tutorial_completes,first_session_users,first_session_exits,ad_starts,ad_completes,store_page_views,store_installs',
-    ',,,,,,,,,,,,,,,,,,,,,,,,,',
-  ].join('\n');
-}
-
-export function generateKpiTemplate(): string {
-  return [
-    'game_name,cpi,ctr,ipm,d1_retention,d3_retention,d7_retention,arpdau,day1_playtime,d0_tutorial_completion,first_session_dropoff,ad_watch_completion,store_conversion,d14_retention,d30_retention,roas,ltv',
-    ',,,,,,,,,,,,,,,,',
+    'game_name,game_genre,test_period,date,campaign_name,impressions,clicks,installs,spend_usd,dau,new_users,revenue_usd,ad_revenue_usd,iap_revenue_usd,avg_session_minutes,cohort_date,d1_active_users,d3_active_users,d7_active_users,d14_active_users,d30_active_users,tutorial_starts,tutorial_completes,first_session_users,first_session_exits,ad_starts,ad_completes,store_page_views,store_installs,trend_source,trend_title,trend_content,trend_category',
+    ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,',
   ].join('\n');
 }
 

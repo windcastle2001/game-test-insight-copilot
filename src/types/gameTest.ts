@@ -111,6 +111,9 @@ export interface TrendAnalysisResult {
 }
 
 export interface RawDataRow {
+  game_name: string;
+  game_genre: string;
+  test_period: string;
   date: string;
   campaign_name: string;
   impressions: number;
@@ -137,12 +140,19 @@ export interface RawDataRow {
   ad_completes: number;
   store_page_views: number;
   store_installs: number;
+  trend_source: string;
+  trend_title: string;
+  trend_content: string;
+  trend_category: string;
 }
 
 export interface RawDataParseResult {
   rows: RawDataRow[];
   rowCount: number;
   campaigns: string[];
+  gameName: string;
+  gameGenre?: GameGenre;
+  testPeriod: string;
   calculatedKpis: Partial<Pick<
     GameTestData,
     | 'cpi'
@@ -231,6 +241,8 @@ export interface AnalysisResult {
   experimentPlan: ExperimentItem[];
   decisionReasons: string[];
   formulaSummary: string;
+  aiProvider: 'gemini' | 'local-fallback';
+  aiStatusMessage: string;
   meetingSummary: string;
   meetingSummaryKor: string;
 }
