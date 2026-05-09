@@ -1,9 +1,9 @@
 import type { AnalysisResult, AnalysisSettings, Decision, ExperimentItem, GameTestData, KpiCard, TrendAnalysisResult } from '../types/gameTest';
 import { DEFAULT_SETTINGS } from '../types/gameTest';
-import { calcMarketabilityScore, calcMonetizationScore, calcRetentionScore, calcWeightedScore, getKpiStatus } from './scoring';
+import { calcMarketabilityScore, calcMonetizationScore, calcRetentionScore, calcWeightedScore, getKpiStatus, hasMetric } from './scoring';
 import { generateGeminiInsight, isGeminiEnabled } from './aiEngine';
 
-const kpiMeta: Record<KpiCard['key'], { name: string; korName: string; unit: string }> = {
+const kpiMeta: Record<KpiCard['key'], { name: string; korName: string; unit: string; optional?: boolean }> = {
   cpi: { name: 'CPI', korName: '설치 비용', unit: '$' },
   ctr: { name: 'CTR', korName: '클릭률', unit: '%' },
   ipm: { name: 'IPM', korName: '천 회 노출당 설치', unit: '' },
@@ -12,31 +12,35 @@ const kpiMeta: Record<KpiCard['key'], { name: string; korName: string; unit: str
   d7Retention: { name: 'D7 Retention', korName: '7일차 잔존율', unit: '%' },
   arpdau: { name: 'ARPDAU', korName: '일평균 수익', unit: '$' },
   day1Playtime: { name: 'Day1 Playtime', korName: '첫날 플레이 시간', unit: '분' },
+  d0TutorialCompletion: { name: 'D0 Tutorial', korName: '튜토리얼 완료율', unit: '%', optional: true },
+  firstSessionDropoff: { name: 'First Exit', korName: '첫 세션 이탈률', unit: '%', optional: true },
+  adWatchCompletion: { name: 'Ad Completion', korName: '광고 시청 완료율', unit: '%', optional: true },
+  storeConversion: { name: 'Store CVR', korName: '스토어 전환율', unit: '%', optional: true },
+  d14Retention: { name: 'D14 Retention', korName: '14일차 잔존율', unit: '%', optional: true },
+  d30Retention: { name: 'D30 Retention', korName: '30일차 잔존율', unit: '%', optional: true },
+  roas: { name: 'ROAS', korName: '광고비 회수율', unit: '%', optional: true },
+  ltv: { name: 'LTV', korName: '유저당 생애가치', unit: '$', optional: true },
 };
 
+const metricKeys = Object.keys(kpiMeta) as KpiCard['key'][];
+
 function buildKpiCards(data: GameTestData, settings: AnalysisSettings): KpiCard[] {
-  const entries: Array<[KpiCard['key'], number]> = [
-    ['cpi', data.cpi],
-    ['ctr', data.ctr],
-    ['ipm', data.ipm],
-    ['d1Retention', data.d1Retention],
-    ['d3Retention', data.d3Retention],
-    ['d7Retention', data.d7Retention],
-    ['arpdau', data.arpdau],
-    ['day1Playtime', data.day1Playtime],
-  ];
-  return entries.map(([key, value]) => {
-    const status = getKpiStatus(key, value, settings);
-    const label = status === 'good' ? '양호' : status === 'watch' ? '주의' : '위험';
-    return {
-      key,
-      ...kpiMeta[key],
-      value,
-      status,
-      interpretation: `${label}: ${kpiMeta[key].korName} 기준으로 판정했습니다.`,
-      korInterpretation: `${label}: ${kpiMeta[key].korName} 기준으로 판정했습니다.`,
-    };
-  });
+  return metricKeys
+    .map((key) => [key, data[key]] as const)
+    .filter(([key, value]) => !kpiMeta[key].optional || hasMetric(value))
+    .map(([key, value]) => {
+      const numeric = value as number;
+      const status = getKpiStatus(key, numeric, settings);
+      const label = status === 'good' ? '양호' : status === 'watch' ? '주의' : '위험';
+      return {
+        key,
+        ...kpiMeta[key],
+        value: numeric,
+        status,
+        interpretation: `${label}: ${kpiMeta[key].korName} 기준으로 판정했습니다.`,
+        korInterpretation: `${label}: ${kpiMeta[key].korName} 기준으로 판정했습니다.`,
+      };
+    });
 }
 
 function trendSummary(trendData?: TrendAnalysisResult | null): string {
@@ -61,6 +65,7 @@ function determineDecision(
     (key) => getKpiStatus(key, data[key as keyof GameTestData] as number, settings) === 'risk'
   );
   const trendAdjust = trendData?.applyToAnalysis ? trendData.confidenceAdjustment : 0;
+  const optionalUsed = kpiCards.filter((card) => kpiMeta[card.key].optional).map((card) => card.korName);
   const formula = `종합점수 ${weightedScore} = 시장성 ${marketability} x ${settings.weights.marketability}% + 리텐션 ${retention} x ${settings.weights.retention}% + 수익화 ${monetization} x ${settings.weights.monetization}%, 동향 보정 ${trendAdjust > 0 ? '+' : ''}${trendAdjust}%p`;
 
   if (allRetentionRisk || (marketability < 40 && retention < 40)) {
@@ -70,7 +75,8 @@ function determineDecision(
       formula,
       reasons: [
         allRetentionRisk ? 'D1/D3/D7 리텐션이 모두 위험 구간입니다.' : '시장성과 리텐션 점수가 모두 40점 미만입니다.',
-        `위험 KPI ${riskCount}개가 확인되었습니다.`,
+        `입력된 지표 중 위험 KPI ${riskCount}개가 확인되었습니다.`,
+        optionalUsed.length > 0 ? `추가 지표 반영: ${optionalUsed.join(', ')}` : '추가 지표는 입력되지 않아 기본 KPI만 반영했습니다.',
         trendSummary(trendData),
       ],
     };
@@ -84,6 +90,7 @@ function determineDecision(
       reasons: [
         '시장성과 리텐션이 모두 70점 이상입니다.',
         '수익화가 최소 기준을 넘고 위험 KPI가 1개 이하입니다.',
+        optionalUsed.length > 0 ? `추가 지표 반영: ${optionalUsed.join(', ')}` : '추가 지표는 입력되지 않아 기본 KPI만 반영했습니다.',
         trendSummary(trendData),
       ],
     };
@@ -96,27 +103,25 @@ function determineDecision(
     reasons: [
       'Scale 조건은 부족하지만 Kill 조건까지는 아닙니다.',
       `가장 약한 축은 ${marketability <= retention && marketability <= monetization ? '시장성' : retention <= monetization ? '리텐션' : '수익화'}입니다.`,
+      optionalUsed.length > 0 ? `추가 지표 반영: ${optionalUsed.join(', ')}` : '추가 지표는 입력되지 않아 기본 KPI만 반영했습니다.',
       trendSummary(trendData),
     ],
   };
 }
 
 function findBottleneck(marketability: number, retention: number, monetization: number, data: GameTestData) {
+  if (hasMetric(data.d0TutorialCompletion) && data.d0TutorialCompletion < 60) return '튜토리얼 완료율이 낮아 첫 경험에서 이탈이 발생할 가능성이 큽니다.';
+  if (hasMetric(data.firstSessionDropoff) && data.firstSessionDropoff > 45) return '첫 세션 이탈률이 높아 초반 몰입 구조를 다시 점검해야 합니다.';
+  if (hasMetric(data.storeConversion) && data.storeConversion < 18) return '스토어 전환율이 낮아 광고 소재와 스토어 페이지 간 기대 차이가 의심됩니다.';
+  if (hasMetric(data.roas) && data.roas < 50) return 'ROAS가 낮아 현재 유입 비용을 수익으로 회수하기 어렵습니다.';
+
   const worst = [
     { key: 'marketability', score: marketability },
     { key: 'retention', score: retention },
     { key: 'monetization', score: monetization },
   ].sort((a, b) => a.score - b.score)[0].key;
-
-  if (worst === 'retention') {
-    if (data.d1Retention < 25) return 'D1 잔존율이 낮아 첫 경험 또는 온보딩 구조 점검이 필요합니다.';
-    if (data.d7Retention < 4) return 'D7 잔존율이 낮아 중기 콘텐츠와 복귀 동기가 부족합니다.';
-    return '초반 리텐션 흐름이 약해 보상, 난이도, 진행 속도 조정이 필요합니다.';
-  }
-  if (worst === 'marketability') {
-    if (data.cpi > 0.8) return 'CPI가 높아 광고 소재 또는 타깃 효율 개선이 필요합니다.';
-    return '광고에서 설치까지의 전환 효율이 낮아 스토어 페이지와 소재 점검이 필요합니다.';
-  }
+  if (worst === 'retention') return data.d1Retention < 25 ? 'D1 잔존율이 낮아 첫 경험 또는 온보딩 구조 점검이 필요합니다.' : '초반 리텐션 흐름이 약해 보상, 난이도, 진행 속도 조정이 필요합니다.';
+  if (worst === 'marketability') return data.cpi > 0.8 ? 'CPI가 높아 광고 소재 또는 타깃 효율 개선이 필요합니다.' : '광고에서 설치까지의 전환 효율이 낮아 스토어 페이지와 소재 점검이 필요합니다.';
   return '수익화 지표가 약해 광고 배치, 보상형 광고, IAP 구조 개선이 필요합니다.';
 }
 
@@ -126,11 +131,10 @@ function buildExperiments(data: GameTestData, decision: Decision, trendData?: Tr
     items.push({ priority: items.length + 1, experiment: experimentKor, experimentKor, targetKpi, expectedImpact: expectedImpactKor, expectedImpactKor, owner: ownerKor, ownerKor });
   };
   const trendTags = trendData?.tagSummary.map((item) => item.tag) ?? [];
-
-  if (trendTags.includes('튜토리얼/온보딩')) add('리뷰 기반 온보딩 마찰 제거', 'D1 Retention', '튜토리얼 이탈 구간 30% 감소', 'UX/게임 기획자');
+  if (hasMetric(data.d0TutorialCompletion) && data.d0TutorialCompletion < 80) add('튜토리얼 단축 및 스킵 구간 테스트', 'D0 Tutorial', '튜토리얼 완료율 80% 이상', 'UX/게임 기획자');
+  if (hasMetric(data.adWatchCompletion) && data.adWatchCompletion < 60) add('보상형 광고 보상 가치 재조정', 'Ad Completion', '광고 완료율 70% 이상 회복', '수익화 PM');
   if (trendTags.includes('광고 피로')) add('강제 광고 빈도와 위치 재설계', 'ARPDAU, D1 Retention', '광고 불만을 줄이면서 ARPDAU 유지', '수익화 PM');
   if (trendTags.includes('난이도')) add('난이도 급상승 구간 완화', 'D3 Retention', '3일차 이탈률 감소', '레벨 디자이너');
-
   if (decision === 'scale') {
     add('상위 국가 UA 예산 증액 테스트', 'CPI, IPM, ROAS', 'CPI 상승폭을 15% 이내로 유지하며 설치량 3배 확대', 'UA 매니저');
     add('우수 소재 변형 5종 확장', 'CTR, IPM', 'CTR 3.0% 이상 유지', '크리에이티브 팀');
@@ -156,9 +160,9 @@ function insight(data: GameTestData, decision: Decision, bottleneck: string, tre
     whatIsWorking: 'Current strengths are derived from comparatively better KPI areas.',
     keyRiskKor: bottleneck,
     keyRisk: bottleneck,
-    whyItMattersKor: '소프트 론칭 의사결정은 유입 비용, 잔존율, 수익화, 실제 유저 반응을 함께 봐야 합니다. KPI만 좋고 리뷰가 나쁘면 스케일 이후 리스크가 커질 수 있습니다.',
+    whyItMattersKor: '소프트 론칭 의사결정은 유입 비용, 잔존율, 수익화, 실제 유저 반응을 함께 봐야 합니다. 입력되지 않은 장기 지표는 제외하고, 확보된 지표만으로 판단합니다.',
     whyItMatters: 'Soft launch decisions require a combined view of acquisition, retention, monetization, and user voice.',
-    recommendedDirectionKor: decision === 'scale' ? '예산을 단계적으로 키우되 CPI 상승, D7 하락, 리뷰 클러스터 악화를 함께 감시하세요.' : decision === 'iterate' ? '가장 낮은 KPI와 가장 큰 부정 클러스터를 연결해 1-2개의 실험으로 좁혀 재테스트하세요.' : 'UA 집행을 멈추고 코어 루프, 온보딩, 부정 리뷰 클러스터를 먼저 재설계한 뒤 소액으로 다시 검증하세요.',
+    recommendedDirectionKor: decision === 'scale' ? '예산을 단계적으로 키우되 CPI 상승, 장기 리텐션 하락, 리뷰 클러스터 악화를 함께 감시하세요.' : decision === 'iterate' ? '가장 낮은 KPI와 가장 큰 부정 클러스터를 연결해 1-2개의 실험으로 좁혀 재테스트하세요.' : 'UA 집행을 멈추고 코어 루프, 온보딩, 부정 리뷰 클러스터를 먼저 재설계한 뒤 소액으로 다시 검증하세요.',
     recommendedDirection: 'Proceed with the next action according to KPI and trend signals.',
   };
 }
@@ -186,7 +190,6 @@ ${result.korBottleneck}
 
 우선 실험
 ${result.experimentPlan.slice(0, 3).map((item) => `${item.priority}. ${item.experimentKor} (${item.ownerKor}) - ${item.expectedImpactKor}`).join('\n')}`;
-
   const eng = `[${data.gameName}] Soft Launch Test Report
 Decision: ${decision} (Confidence ${result.confidence}%)
 Formula: ${result.formulaSummary}`;
@@ -198,9 +201,9 @@ export async function analyzeGame(
   settings: AnalysisSettings = DEFAULT_SETTINGS,
   trendData?: TrendAnalysisResult | null
 ): Promise<AnalysisResult> {
-  const marketabilityScore = calcMarketabilityScore(data.cpi, data.ctr, data.ipm);
-  const retentionScore = calcRetentionScore(data.d1Retention, data.d3Retention, data.d7Retention);
-  const monetizationScore = calcMonetizationScore(data.arpdau, data.day1Playtime);
+  const marketabilityScore = calcMarketabilityScore(data);
+  const retentionScore = calcRetentionScore(data);
+  const monetizationScore = calcMonetizationScore(data);
   const weightedScore = calcWeightedScore(marketabilityScore, retentionScore, monetizationScore, settings);
   const decisionResult = determineDecision(marketabilityScore, retentionScore, monetizationScore, weightedScore, data, settings, trendData);
   const korBottleneck = findBottleneck(marketabilityScore, retentionScore, monetizationScore, data);

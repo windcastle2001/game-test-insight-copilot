@@ -121,13 +121,18 @@ label { font-size: 12px; font-weight: 900; color: var(--gray-text); }
 
 .results-stack { padding-bottom: 30px; }
 .decision-card { display: flex; justify-content: space-between; gap: 18px; align-items: center; border-width: 2px; }
-.decision-card.good { background: #f0fdf4; } .decision-card.watch { background: #fffbeb; } .decision-card.risk { background: #fff1f2; }
+.decision-card.good { background: #ecfdf5; border-color: #16a34a; color: #14532d; }
+.decision-card.watch { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
+.decision-card.risk { background: #fff1f2; border-color: #e11d48; color: #881337; }
 .decision-main { display: flex; gap: 16px; align-items: center; color: var(--black); }
-.decision-main span { display: inline-block; padding: 5px 10px; border-radius: 999px; background: var(--black); color: var(--white); font-size: 12px; font-weight: 900; }
-.decision-main strong { display: block; margin-top: 6px; font-size: 46px; line-height: 1; color: var(--pink); font-weight: 900; }
+.decision-card.good .decision-main span, .decision-card.good .decision-main strong, .decision-card.good .confidence strong { background: #16a34a; color: #ffffff; }
+.decision-card.watch .decision-main span, .decision-card.watch .decision-main strong, .decision-card.watch .confidence strong { background: #f59e0b; color: #000000; }
+.decision-card.risk .decision-main span, .decision-card.risk .decision-main strong, .decision-card.risk .confidence strong { background: #e11d48; color: #ffffff; }
+.decision-main span { display: inline-block; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; }
+.decision-main strong { display: inline-block; margin-top: 6px; padding: 6px 12px; border-radius: 8px; font-size: 46px; line-height: 1; font-weight: 900; }
 .decision-main p { margin: 8px 0 0; }
 .confidence { text-align: right; }
-.confidence strong { display: block; color: var(--pink); font-size: 48px; line-height: 1; font-weight: 900; }
+.confidence strong { display: block; padding: 8px 12px; border-radius: 8px; font-size: 48px; line-height: 1; font-weight: 900; }
 .confidence span { font-weight: 900; color: var(--gray-muted); }
 .score-grid { grid-template-columns: repeat(3, 1fr); margin-top: 12px; }
 .score-card, .health-card, .insight-card, .experiment-row { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
@@ -141,8 +146,14 @@ label { font-size: 12px; font-weight: 900; color: var(--gray-text); }
 .reason-panel span { display: block; margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--pink); color: var(--gray-text); font-size: 13px; line-height: 1.45; }
 
 .health-grid { grid-template-columns: repeat(4, 1fr); }
+.health-card.good { background: #ecfdf5; border-color: #16a34a; }
+.health-card.watch { background: #fffbeb; border-color: #f59e0b; }
+.health-card.risk { background: #fff1f2; border-color: #e11d48; }
 .health-card div { display: flex; justify-content: space-between; gap: 8px; }
-.health-card b { font-size: 12px; color: var(--pink); }
+.health-card b { font-size: 12px; padding: 4px 8px; border-radius: 999px; }
+.health-card.good b { background: #16a34a; color: #ffffff; }
+.health-card.watch b { background: #f59e0b; color: #000000; }
+.health-card.risk b { background: #e11d48; color: #ffffff; }
 .health-card strong { display: block; margin: 12px 0; color: var(--black); font-size: 28px; }
 .health-card p, .insight-card p, .experiment-row p { margin: 0; color: #666; line-height: 1.55; font-size: 13px; }
 .chart-grid { grid-template-columns: repeat(2, 1fr); }

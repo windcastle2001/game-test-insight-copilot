@@ -18,6 +18,7 @@ export default function AiInsightSection({ insight }: Props) {
       <div className="section-heading compact">
         <p className="section-eyebrow">AI 인사이트</p>
         <h2>해석과 다음 방향</h2>
+        <p>Scale/Iterate/Kill 결정은 입력 KPI와 기준값을 쓰는 로컬 점수 엔진이 계산합니다. Gemini API 키가 설정된 경우에는 이 결과와 동향 요약을 바탕으로 인사이트 문장을 보강합니다.</p>
       </div>
       <div className="insight-grid">
         {items.map(([title, body]) => (

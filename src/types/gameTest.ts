@@ -12,6 +12,14 @@ export interface GameTestData {
   d7Retention: number;
   arpdau: number;
   day1Playtime: number;
+  d0TutorialCompletion?: number;
+  firstSessionDropoff?: number;
+  adWatchCompletion?: number;
+  storeConversion?: number;
+  d14Retention?: number;
+  d30Retention?: number;
+  roas?: number;
+  ltv?: number;
 }
 
 export type KpiStatus = 'good' | 'watch' | 'risk';
@@ -27,6 +35,14 @@ export interface AnalysisSettings {
     d7Retention: { good: number; watch: number };
     arpdau: { good: number; watch: number };
     day1Playtime: { good: number; watch: number };
+    d0TutorialCompletion: { good: number; watch: number };
+    firstSessionDropoff: { good: number; watch: number };
+    adWatchCompletion: { good: number; watch: number };
+    storeConversion: { good: number; watch: number };
+    d14Retention: { good: number; watch: number };
+    d30Retention: { good: number; watch: number };
+    roas: { good: number; watch: number };
+    ltv: { good: number; watch: number };
   };
   weights: {
     marketability: number;
@@ -46,6 +62,14 @@ export const DEFAULT_SETTINGS: AnalysisSettings = {
     d7Retention: { good: 8, watch: 4 },
     arpdau: { good: 0.04, watch: 0.02 },
     day1Playtime: { good: 8, watch: 5 },
+    d0TutorialCompletion: { good: 80, watch: 60 },
+    firstSessionDropoff: { good: 25, watch: 45 },
+    adWatchCompletion: { good: 80, watch: 60 },
+    storeConversion: { good: 30, watch: 18 },
+    d14Retention: { good: 4, watch: 2 },
+    d30Retention: { good: 2, watch: 1 },
+    roas: { good: 100, watch: 50 },
+    ltv: { good: 0.12, watch: 0.05 },
   },
   weights: { marketability: 35, retention: 45, monetization: 20 },
   customPrompt: '',
@@ -103,23 +127,63 @@ export interface RawDataRow {
   d1_active_users: number;
   d3_active_users: number;
   d7_active_users: number;
+  d14_active_users: number;
+  d30_active_users: number;
+  tutorial_starts: number;
+  tutorial_completes: number;
+  first_session_users: number;
+  first_session_exits: number;
+  ad_starts: number;
+  ad_completes: number;
+  store_page_views: number;
+  store_installs: number;
 }
 
 export interface RawDataParseResult {
   rows: RawDataRow[];
   rowCount: number;
   campaigns: string[];
-  calculatedKpis: Pick<
+  calculatedKpis: Partial<Pick<
     GameTestData,
-    'cpi' | 'ctr' | 'ipm' | 'd1Retention' | 'd3Retention' | 'd7Retention' | 'arpdau' | 'day1Playtime'
-  >;
+    | 'cpi'
+    | 'ctr'
+    | 'ipm'
+    | 'd1Retention'
+    | 'd3Retention'
+    | 'd7Retention'
+    | 'arpdau'
+    | 'day1Playtime'
+    | 'd0TutorialCompletion'
+    | 'firstSessionDropoff'
+    | 'adWatchCompletion'
+    | 'storeConversion'
+    | 'd14Retention'
+    | 'd30Retention'
+    | 'roas'
+    | 'ltv'
+  >>;
   warnings: string[];
 }
 
 export interface KpiCard {
   key: keyof Pick<
     GameTestData,
-    'cpi' | 'ctr' | 'ipm' | 'd1Retention' | 'd3Retention' | 'd7Retention' | 'arpdau' | 'day1Playtime'
+    | 'cpi'
+    | 'ctr'
+    | 'ipm'
+    | 'd1Retention'
+    | 'd3Retention'
+    | 'd7Retention'
+    | 'arpdau'
+    | 'day1Playtime'
+    | 'd0TutorialCompletion'
+    | 'firstSessionDropoff'
+    | 'adWatchCompletion'
+    | 'storeConversion'
+    | 'd14Retention'
+    | 'd30Retention'
+    | 'roas'
+    | 'ltv'
   >;
   name: string;
   korName: string;

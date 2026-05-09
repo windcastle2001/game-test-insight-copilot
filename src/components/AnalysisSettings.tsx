@@ -18,6 +18,14 @@ const rows: Array<{ key: keyof AnalysisSettings['thresholds']; label: string; un
   { key: 'd7Retention', label: 'D7 잔존율', unit: '%', step: 0.5, hint: '높을수록 좋음' },
   { key: 'arpdau', label: 'ARPDAU', unit: '$', step: 0.001, hint: '높을수록 좋음' },
   { key: 'day1Playtime', label: '첫날 플레이', unit: '분', step: 0.5, hint: '높을수록 좋음' },
+  { key: 'd0TutorialCompletion', label: '튜토리얼 완료율', unit: '%', step: 0.5, hint: '높을수록 좋음' },
+  { key: 'firstSessionDropoff', label: '첫 세션 이탈률', unit: '%', step: 0.5, hint: '낮을수록 좋음' },
+  { key: 'adWatchCompletion', label: '광고 시청 완료율', unit: '%', step: 0.5, hint: '높을수록 좋음' },
+  { key: 'storeConversion', label: '스토어 전환율', unit: '%', step: 0.5, hint: '높을수록 좋음' },
+  { key: 'd14Retention', label: 'D14 잔존율', unit: '%', step: 0.5, hint: '높을수록 좋음' },
+  { key: 'd30Retention', label: 'D30 잔존율', unit: '%', step: 0.5, hint: '높을수록 좋음' },
+  { key: 'roas', label: 'ROAS', unit: '%', step: 1, hint: '높을수록 좋음' },
+  { key: 'ltv', label: 'LTV', unit: '$', step: 0.001, hint: '높을수록 좋음' },
 ];
 
 export default function AnalysisSettingsPanel({ settings, onChange }: Props) {

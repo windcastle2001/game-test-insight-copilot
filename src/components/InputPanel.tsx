@@ -25,9 +25,18 @@ const fields: Array<{ key: keyof GameTestData; label: string; unit: string; step
   { key: 'd7Retention', label: 'D7 잔존율', unit: '%', step: 0.1 },
   { key: 'arpdau', label: 'ARPDAU', unit: '$', step: 0.001 },
   { key: 'day1Playtime', label: '첫날 플레이', unit: '분', step: 0.1 },
+  { key: 'd0TutorialCompletion', label: '튜토리얼 완료율', unit: '%', step: 0.1 },
+  { key: 'firstSessionDropoff', label: '첫 세션 이탈률', unit: '%', step: 0.1 },
+  { key: 'adWatchCompletion', label: '광고 시청 완료율', unit: '%', step: 0.1 },
+  { key: 'storeConversion', label: '스토어 전환율', unit: '%', step: 0.1 },
+  { key: 'd14Retention', label: 'D14 잔존율', unit: '%', step: 0.1 },
+  { key: 'd30Retention', label: 'D30 잔존율', unit: '%', step: 0.1 },
+  { key: 'roas', label: 'ROAS', unit: '%', step: 0.1 },
+  { key: 'ltv', label: 'LTV', unit: '$', step: 0.001 },
 ];
 
 const kpiColumns = ['game_name', 'cpi', 'ctr', 'ipm', 'd1_retention', 'd3_retention', 'd7_retention', 'arpdau', 'day1_playtime'];
+const optionalKpiColumns = ['d0_tutorial_completion', 'first_session_dropoff', 'ad_watch_completion', 'store_conversion', 'd14_retention', 'd30_retention', 'roas', 'ltv'];
 
 function normalizeRow(row: Record<string, string>) {
   return Object.fromEntries(Object.entries(row).map(([key, value]) => [key.replace(/^\uFEFF/, '').trim().toLowerCase(), value ?? '']));
@@ -40,7 +49,15 @@ export default function InputPanel({ data, onChange, onAnalyze, isLoading, loadi
   const [rawResult, setRawResult] = useState<RawDataParseResult | null>(null);
   const [kpiWarnings, setKpiWarnings] = useState<string[]>([]);
 
-  const setNumber = (key: keyof GameTestData, value: string) => onChange({ ...data, [key]: Number.parseFloat(value) || 0 });
+  const setNumber = (key: keyof GameTestData, value: string) => {
+    if (value === '' && !['cpi', 'ctr', 'ipm', 'd1Retention', 'd3Retention', 'd7Retention', 'arpdau', 'day1Playtime'].includes(key)) {
+      const next = { ...data };
+      delete next[key];
+      onChange(next);
+      return;
+    }
+    onChange({ ...data, [key]: Number.parseFloat(value) || 0 });
+  };
 
   const uploadKpi = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -54,8 +71,21 @@ export default function InputPanel({ data, onChange, onAnalyze, isLoading, loadi
         kpiColumns.forEach((column) => {
           if (!(column in row)) warnings.push(`필수 컬럼 누락: ${column}`);
         });
-        kpiColumns.filter((column) => column !== 'game_name').forEach((column) => {
+        [...kpiColumns, ...optionalKpiColumns].filter((column) => column !== 'game_name').forEach((column) => {
           if (row[column] !== undefined && row[column] !== '' && !Number.isFinite(Number(row[column]))) warnings.push(`${column} 숫자 파싱 실패: ${row[column]}`);
+        });
+        const optionalValues: Partial<GameTestData> = {
+          d0TutorialCompletion: row.d0_tutorial_completion === '' ? undefined : Number(row.d0_tutorial_completion),
+          firstSessionDropoff: row.first_session_dropoff === '' ? undefined : Number(row.first_session_dropoff),
+          adWatchCompletion: row.ad_watch_completion === '' ? undefined : Number(row.ad_watch_completion),
+          storeConversion: row.store_conversion === '' ? undefined : Number(row.store_conversion),
+          d14Retention: row.d14_retention === '' ? undefined : Number(row.d14_retention),
+          d30Retention: row.d30_retention === '' ? undefined : Number(row.d30_retention),
+          roas: row.roas === '' ? undefined : Number(row.roas),
+          ltv: row.ltv === '' ? undefined : Number(row.ltv),
+        };
+        Object.keys(optionalValues).forEach((key) => {
+          if (!Number.isFinite(optionalValues[key as keyof GameTestData])) delete optionalValues[key as keyof GameTestData];
         });
         setKpiWarnings(warnings);
         onChange({
@@ -69,6 +99,7 @@ export default function InputPanel({ data, onChange, onAnalyze, isLoading, loadi
           d7Retention: Number(row.d7_retention) || 0,
           arpdau: Number(row.arpdau) || 0,
           day1Playtime: Number(row.day1_playtime) || 0,
+          ...optionalValues,
         });
       },
     });
@@ -139,7 +170,7 @@ export default function InputPanel({ data, onChange, onAnalyze, isLoading, loadi
                 <span>{field.label}</span>
                 <div>
                   {field.unit === '$' && <em>$</em>}
-                  <input type="number" value={data[field.key] as number} step={field.step} onChange={(event) => setNumber(field.key, event.target.value)} />
+                  <input type="number" value={(data[field.key] as number | undefined) ?? ''} step={field.step} onChange={(event) => setNumber(field.key, event.target.value)} />
                   {field.unit && field.unit !== '$' && <em>{field.unit}</em>}
                 </div>
               </label>
