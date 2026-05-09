@@ -5,58 +5,136 @@ interface Props {
   kpiCards: KpiCard[];
 }
 
-const statusConfig: Record<KpiStatus, { label: string; korLabel: string; bg: string; border: string; color: string; dotColor: string }> = {
-  good: { label: 'Good', korLabel: '양호', bg: '#f0fdf4', border: '#86efac', color: '#16a34a', dotColor: '#22c55e' },
-  watch: { label: 'Watch', korLabel: '주의', bg: '#fffbeb', border: '#fcd34d', color: '#d97706', dotColor: '#f59e0b' },
-  risk: { label: 'Risk', korLabel: '위험', bg: '#fff1f2', border: '#fca5a5', color: '#dc2626', dotColor: '#ef4444' },
+const statusConfig: Record<KpiStatus, {
+  label: string;
+  bg: string;
+  color: string;
+  dotColor: string;
+}> = {
+  good:  { label: '양호', bg: '#f0fdf4', color: '#16a34a', dotColor: '#22c55e' },
+  watch: { label: '주의', bg: '#fffbeb', color: '#d97706', dotColor: '#f59e0b' },
+  risk:  { label: '위험', bg: '#fff1f2', color: '#dc2626', dotColor: '#ef4444' },
 };
 
 function KpiCardItem({ card, index }: { card: KpiCard; index: number }) {
   const sc = statusConfig[card.status];
+
   const displayValue =
-    card.key === 'arpdau'
+    card.key === 'arpdau' || card.key === 'cpi'
       ? `$${card.value}`
-      : card.key === 'cpi'
-      ? `$${card.value}`
-      : `${card.value}${card.unit}`;
+      : card.unit
+      ? `${card.value}${card.unit}`
+      : String(card.value);
 
   return (
     <motion.div
-      className="rounded-[14px] p-4"
-      style={{ backgroundColor: '#ffffff', border: `1.5px solid ${sc.border}` }}
+      className="rounded-[14px] flex flex-col"
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #E0E0E0',
+        padding: 20,
+        minHeight: 160,
+      }}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.07 }}
     >
-      {/* 상태 배지 */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold" style={{ color: '#888888' }}>
-          {card.name}
-        </span>
+      {/* 상단: KPI명 + 상태 뱃지 */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#888',
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {card.name}
+          </p>
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#444',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {card.korName}
+          </p>
+        </div>
+        {/* 상태 뱃지 */}
         <span
-          className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: sc.bg, color: sc.color }}
+          className="flex items-center gap-1 flex-shrink-0"
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: '3px 8px',
+            borderRadius: 100,
+            backgroundColor: sc.bg,
+            color: sc.color,
+          }}
+          role="status"
+          aria-label={`${card.korName} 상태: ${sc.label}`}
         >
           <span
-            className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: sc.dotColor }}
+            aria-hidden
+            style={{
+              display: 'inline-block',
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              backgroundColor: sc.dotColor,
+            }}
           />
-          {sc.korLabel}
+          {sc.label}
         </span>
       </div>
 
       {/* 값 */}
-      <div className="mb-1">
-        <span className="text-2xl font-black" style={{ color: '#000000' }}>
+      <div style={{ marginBottom: 'auto' }}>
+        <p
+          style={{
+            fontSize: 32,
+            fontWeight: 900,
+            color: '#000',
+            lineHeight: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {displayValue}
-        </span>
+        </p>
       </div>
-      <p className="text-xs font-medium" style={{ color: '#444444' }}>
-        {card.korName}
-      </p>
 
-      {/* 해석 */}
-      <p className="text-xs mt-3 leading-relaxed" style={{ color: '#888888' }}>
+      {/* 해석 텍스트 — 2줄로 말줄임 */}
+      <p
+        style={{
+          fontSize: 12,
+          color: '#666',
+          marginTop: 10,
+          lineHeight: 1.5,
+          overflow: 'hidden',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+        }}
+      >
         {card.korInterpretation}
       </p>
     </motion.div>
@@ -64,46 +142,49 @@ function KpiCardItem({ card, index }: { card: KpiCard; index: number }) {
 }
 
 export default function KpiHealthDashboard({ kpiCards }: Props) {
-  const goodCount = kpiCards.filter((c) => c.status === 'good').length;
+  const goodCount  = kpiCards.filter((c) => c.status === 'good').length;
   const watchCount = kpiCards.filter((c) => c.status === 'watch').length;
-  const riskCount = kpiCards.filter((c) => c.status === 'risk').length;
+  const riskCount  = kpiCards.filter((c) => c.status === 'risk').length;
 
   return (
-    <section className="max-w-5xl mx-auto px-6 mb-8">
+    <section className="max-w-6xl mx-auto px-6 mb-8">
       {/* 섹션 헤더 */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-black" style={{ color: '#000000' }}>
-          KPI 건강 대시보드
-          <span className="ml-2 text-sm font-normal" style={{ color: '#888888' }}>
-            KPI Health Dashboard
-          </span>
-        </h2>
-        {/* 요약 카운터 */}
-        <div className="flex gap-2">
-          {[
-            { count: goodCount, label: '양호', color: '#16a34a', bg: '#f0fdf4' },
-            { count: watchCount, label: '주의', color: '#d97706', bg: '#fffbeb' },
-            { count: riskCount, label: '위험', color: '#dc2626', bg: '#fff1f2' },
-          ].map(({ count, label, color, bg }) => (
-            <span
-              key={label}
-              className="text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: bg, color }}
-            >
-              {count} {label}
-            </span>
-          ))}
+      <div className="mb-4">
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#888', textTransform: 'uppercase', marginBottom: 4 }}>
+          KPI HEALTH CHECK
+        </p>
+        <div className="flex items-end justify-between flex-wrap gap-3">
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#000' }}>
+            KPI 건강 대시보드 <span style={{ color: '#F5C300' }}>Dashboard</span>
+          </h2>
+          {/* 요약 카운터 */}
+          <div className="flex gap-2">
+            {[
+              { count: goodCount,  label: '양호', color: '#16a34a', bg: '#f0fdf4' },
+              { count: watchCount, label: '주의', color: '#d97706', bg: '#fffbeb' },
+              { count: riskCount,  label: '위험', color: '#dc2626', bg: '#fff1f2' },
+            ].map(({ count, label, color, bg }) => (
+              <span
+                key={label}
+                className="text-xs font-bold px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: bg, color }}
+                aria-label={`${label} ${count}개`}
+              >
+                {count} {label}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* KPI 카드 그리드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {/* KPI 카드 그리드 — sm:2열, lg:4열 */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {kpiCards.map((card, i) => (
           <KpiCardItem key={card.key} card={card} index={i} />
         ))}
       </div>
 
-      <p className="text-xs mt-3" style={{ color: '#888888' }}>
+      <p className="text-xs mt-3" style={{ color: '#888' }}>
         * Prototype Benchmark 기준 (실제 업계 절대 기준과 다를 수 있습니다)
       </p>
     </section>

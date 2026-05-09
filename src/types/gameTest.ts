@@ -1,3 +1,105 @@
+// ─── Analysis Settings (분석 기준 설정) ───────────────────────────────────────
+export interface AnalysisSettings {
+  thresholds: {
+    cpi: { good: number; watch: number };
+    ctr: { good: number; watch: number };
+    ipm: { good: number; watch: number };
+    d1Retention: { good: number; watch: number };
+    d3Retention: { good: number; watch: number };
+    d7Retention: { good: number; watch: number };
+    arpdau: { good: number; watch: number };
+    day1Playtime: { good: number; watch: number };
+  };
+  weights: {
+    marketability: number;  // 0-100, 합계 = 100
+    retention: number;
+    monetization: number;
+  };
+  customPrompt: string;
+}
+
+export const DEFAULT_SETTINGS: AnalysisSettings = {
+  thresholds: {
+    cpi:          { good: 0.4,  watch: 0.8 },
+    ctr:          { good: 2.5,  watch: 1.5 },
+    ipm:          { good: 35,   watch: 20 },
+    d1Retention:  { good: 35,   watch: 25 },
+    d3Retention:  { good: 18,   watch: 10 },
+    d7Retention:  { good: 8,    watch: 4 },
+    arpdau:       { good: 0.04, watch: 0.02 },
+    day1Playtime: { good: 8,    watch: 5 },
+  },
+  weights: { marketability: 35, retention: 45, monetization: 20 },
+  customPrompt: '',
+};
+
+// ─── Trend Analysis (동향 분석) ───────────────────────────────────────────────
+export interface TrendDataRow {
+  date: string;
+  source: string;
+  title: string;
+  content: string;
+  category: string;
+}
+
+export interface TrendCluster {
+  name: string;
+  count: number;
+  positiveCount: number;
+  negativeCount: number;
+  neutralCount: number;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  sentimentRatio: number; // 부정 비율 0-100
+}
+
+export interface TrendAnalysisResult {
+  totalCount: number;
+  dateRange: { from: string; to: string };
+  clusters: TrendCluster[];
+  topInsights: string[];
+  overallSentiment: 'positive' | 'negative' | 'neutral';
+  confidenceAdjustment: number; // -20 ~ +20, 최종 confidence 보정값
+  weightAdjustment: number;     // 0-30, 동향 반영 가중치 (유저 설정)
+  applyToAnalysis: boolean;
+}
+
+// ─── Raw Data (원시 데이터) ───────────────────────────────────────────────────
+export interface RawDataRow {
+  date: string;
+  campaign_name: string;
+  impressions: number;
+  clicks: number;
+  installs: number;
+  spend_usd: number;
+  dau: number;
+  new_users: number;
+  revenue_usd: number;
+  ad_revenue_usd: number;
+  iap_revenue_usd: number;
+  avg_session_minutes: number;
+  cohort_date: string;
+  d1_active_users: number;
+  d3_active_users: number;
+  d7_active_users: number;
+}
+
+export interface RawDataParseResult {
+  rows: RawDataRow[];
+  rowCount: number;
+  campaigns: string[];
+  calculatedKpis: {
+    cpi: number;
+    ctr: number;
+    ipm: number;
+    d1Retention: number;
+    d3Retention: number;
+    d7Retention: number;
+    arpdau: number;
+    day1Playtime: number;
+  };
+}
+
+// ─── Game Test Data ───────────────────────────────────────────────────────────
 export interface GameTestData {
   gameName: string;
   gameGenre: '하이퍼캐주얼' | '하이브리드캐주얼' | '캐주얼';

@@ -1,7 +1,7 @@
 export default function Header() {
   return (
     <header style={{ backgroundColor: '#000000' }} className="w-full px-6 py-10">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* 로고 + 타이틀 */}
         <div className="flex items-center gap-4 mb-6">
           <img

@@ -4,7 +4,10 @@ import type {
   Decision,
   KpiCard,
   ExperimentItem,
+  AnalysisSettings,
+  TrendAnalysisResult,
 } from '../types/gameTest';
+import { DEFAULT_SETTINGS } from '../types/gameTest';
 import {
   getKpiStatus,
   calcMarketabilityScore,
@@ -73,7 +76,7 @@ const kpiMeta: Record<string, { name: string; korName: string; unit: string; eng
   },
 };
 
-function buildKpiCards(data: GameTestData): KpiCard[] {
+function buildKpiCards(data: GameTestData, settings?: AnalysisSettings): KpiCard[] {
   const entries: [string, number][] = [
     ['cpi', data.cpi],
     ['ctr', data.ctr],
@@ -87,7 +90,7 @@ function buildKpiCards(data: GameTestData): KpiCard[] {
 
   return entries.map(([key, value]) => {
     const meta = kpiMeta[key];
-    const status = getKpiStatus(key, value);
+    const status = getKpiStatus(key, value, settings);
     return {
       key,
       name: meta.name,
@@ -105,11 +108,13 @@ function determineDecision(
   marketability: number,
   retention: number,
   monetization: number,
-  data: GameTestData
+  data: GameTestData,
+  settings?: AnalysisSettings,
+  trendData?: TrendAnalysisResult | null
 ): { decision: Decision; confidence: number } {
-  const d1Risk = getKpiStatus('d1Retention', data.d1Retention) === 'risk';
-  const d3Risk = getKpiStatus('d3Retention', data.d3Retention) === 'risk';
-  const d7Risk = getKpiStatus('d7Retention', data.d7Retention) === 'risk';
+  const d1Risk = getKpiStatus('d1Retention', data.d1Retention, settings) === 'risk';
+  const d3Risk = getKpiStatus('d3Retention', data.d3Retention, settings) === 'risk';
+  const d7Risk = getKpiStatus('d7Retention', data.d7Retention, settings) === 'risk';
 
   const allRetentionRisk = d1Risk && d3Risk && d7Risk;
   const bothLow = marketability < 40 && retention < 40;
@@ -120,26 +125,31 @@ function determineDecision(
   }
 
   const riskKpiCount = [
-    getKpiStatus('cpi', data.cpi),
-    getKpiStatus('ctr', data.ctr),
-    getKpiStatus('ipm', data.ipm),
-    getKpiStatus('d1Retention', data.d1Retention),
-    getKpiStatus('d3Retention', data.d3Retention),
-    getKpiStatus('d7Retention', data.d7Retention),
-    getKpiStatus('arpdau', data.arpdau),
-    getKpiStatus('day1Playtime', data.day1Playtime),
+    getKpiStatus('cpi', data.cpi, settings),
+    getKpiStatus('ctr', data.ctr, settings),
+    getKpiStatus('ipm', data.ipm, settings),
+    getKpiStatus('d1Retention', data.d1Retention, settings),
+    getKpiStatus('d3Retention', data.d3Retention, settings),
+    getKpiStatus('d7Retention', data.d7Retention, settings),
+    getKpiStatus('arpdau', data.arpdau, settings),
+    getKpiStatus('day1Playtime', data.day1Playtime, settings),
   ].filter((s) => s === 'risk').length;
+
+  // 동향 데이터 감성에 따라 임계값 조정
+  const trendAdjust = (trendData?.applyToAnalysis && trendData.confidenceAdjustment) ? trendData.confidenceAdjustment : 0;
 
   if (marketability >= 70 && retention >= 70 && riskKpiCount <= 1) {
     const avgScore = (marketability + retention + monetization) / 3;
-    const confidence = Math.round(50 + avgScore / 2);
-    return { decision: 'scale', confidence: Math.min(96, Math.max(70, confidence)) };
+    const rawConf = Math.round(50 + avgScore / 2);
+    const confidence = Math.min(96, Math.max(60, rawConf + trendAdjust));
+    return { decision: 'scale', confidence };
   }
 
   // Iterate
   const avgScore = (marketability + retention + monetization) / 3;
-  const confidence = Math.round(40 + avgScore / 3);
-  return { decision: 'iterate', confidence: Math.min(88, Math.max(55, confidence)) };
+  const rawConf = Math.round(40 + avgScore / 3);
+  const confidence = Math.min(88, Math.max(45, rawConf + trendAdjust));
+  return { decision: 'iterate', confidence };
 }
 
 function findBottleneck(
@@ -448,12 +458,16 @@ ${experiments.slice(0, 3).map((e, i) => `${i + 1}. ${e.experiment} (Owner: ${e.o
   return { eng, kor };
 }
 
-export async function analyzeGame(data: GameTestData): Promise<AnalysisResult> {
-  const marketability = calcMarketabilityScore(data.cpi, data.ctr, data.ipm);
-  const retention = calcRetentionScore(data.d1Retention, data.d3Retention, data.d7Retention);
-  const monetization = calcMonetizationScore(data.arpdau, data.day1Playtime);
+export async function analyzeGame(
+  data: GameTestData,
+  settings: AnalysisSettings = DEFAULT_SETTINGS,
+  trendData?: TrendAnalysisResult | null
+): Promise<AnalysisResult> {
+  const marketability = calcMarketabilityScore(data.cpi, data.ctr, data.ipm, settings);
+  const retention = calcRetentionScore(data.d1Retention, data.d3Retention, data.d7Retention, settings);
+  const monetization = calcMonetizationScore(data.arpdau, data.day1Playtime, settings);
 
-  const { decision, confidence } = determineDecision(marketability, retention, monetization, data);
+  const { decision, confidence } = determineDecision(marketability, retention, monetization, data, settings, trendData);
   const { bottleneck, korBottleneck } = findBottleneck(marketability, retention, monetization, data);
 
   const focusMap: Record<Decision, { eng: string; kor: string }> = {
@@ -465,7 +479,7 @@ export async function analyzeGame(data: GameTestData): Promise<AnalysisResult> {
     kill: { eng: 'Core Loop Redesign', kor: '코어루프 재설계' },
   };
 
-  const kpiCards = buildKpiCards(data);
+  const kpiCards = buildKpiCards(data, settings);
   let aiInsight = buildAiInsight(data, decision, marketability, retention, monetization);
   const experimentPlan = buildExperimentPlan(data, decision, marketability, retention);
   const { eng: meetingSummary, kor: meetingSummaryKor } = buildMeetingSummary(
