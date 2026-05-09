@@ -2,8 +2,9 @@ services:
   - type: web
     name: game-test-insight-copilot
     env: static
-    buildCommand: npm run build
-    staticPublishPath: ./dist
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: false
     envVars:
       - key: VITE_GEMINI_API_KEY
         sync: false
