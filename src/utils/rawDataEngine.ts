@@ -1,92 +1,119 @@
-/**
- * rawDataEngine.ts
- * Raw 캠페인 데이터 CSV를 파싱하고 KPI를 자동 계산합니다.
- */
+import type { RawDataParseResult, RawDataRow } from '../types/gameTest';
 
-import type { RawDataRow, RawDataParseResult } from '../types/gameTest';
+function parseNum(value: string | undefined): number {
+  if (!value) return 0;
+  const n = Number.parseFloat(value.trim());
+  return Number.isFinite(n) ? n : 0;
+}
 
-function parseNum(val: string | undefined): number {
-  if (val === undefined || val === '') return 0;
-  const n = parseFloat(val.trim());
-  return isNaN(n) ? 0 : n;
+function normalizeRow(row: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(row).map(([key, value]) => [key.replace(/^\uFEFF/, '').trim().toLowerCase(), value ?? '']));
+}
+
+function validateRawRows(rows: Record<string, string>[]): string[] {
+  const warnings: string[] = [];
+  const required = [
+    'date',
+    'campaign_name',
+    'impressions',
+    'clicks',
+    'installs',
+    'spend_usd',
+    'dau',
+    'new_users',
+    'revenue_usd',
+    'cohort_date',
+    'd1_active_users',
+    'd3_active_users',
+    'd7_active_users',
+  ];
+  if (rows.length === 0) return ['Raw Data CSV에 분석할 행이 없습니다.'];
+  const headers = Object.keys(normalizeRow(rows[0]));
+  required.forEach((field) => {
+    if (!headers.includes(field)) warnings.push(`필수 컬럼 누락: ${field}`);
+  });
+
+  const seenCohorts = new Set<string>();
+  rows.map(normalizeRow).forEach((row, index) => {
+    ['impressions', 'clicks', 'installs', 'spend_usd', 'dau', 'new_users', 'revenue_usd', 'd1_active_users', 'd3_active_users', 'd7_active_users'].forEach((field) => {
+      if (row[field] !== undefined && row[field] !== '' && !Number.isFinite(Number.parseFloat(row[field]))) {
+        warnings.push(`${index + 1}행: ${field} 숫자 파싱 실패 (${row[field]})`);
+      }
+    });
+    const cohortKey = `${row.date}|${row.campaign_name}|${row.cohort_date}`;
+    if (seenCohorts.has(cohortKey)) warnings.push(`${index + 1}행: 같은 date/campaign/cohort 조합이 중복되었습니다.`);
+    seenCohorts.add(cohortKey);
+  });
+  return warnings.slice(0, 12);
 }
 
 export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseResult {
-  const parsed: RawDataRow[] = rows.map((row) => ({
-    date:               row.date ?? '',
-    campaign_name:      row.campaign_name ?? '',
-    impressions:        parseNum(row.impressions),
-    clicks:             parseNum(row.clicks),
-    installs:           parseNum(row.installs),
-    spend_usd:          parseNum(row.spend_usd),
-    dau:                parseNum(row.dau),
-    new_users:          parseNum(row.new_users),
-    revenue_usd:        parseNum(row.revenue_usd),
-    ad_revenue_usd:     parseNum(row.ad_revenue_usd),
-    iap_revenue_usd:    parseNum(row.iap_revenue_usd),
+  const warnings = validateRawRows(rows);
+  const parsed: RawDataRow[] = rows.map(normalizeRow).map((row) => ({
+    date: row.date ?? '',
+    campaign_name: row.campaign_name ?? '',
+    impressions: parseNum(row.impressions),
+    clicks: parseNum(row.clicks),
+    installs: parseNum(row.installs),
+    spend_usd: parseNum(row.spend_usd),
+    dau: parseNum(row.dau),
+    new_users: parseNum(row.new_users),
+    revenue_usd: parseNum(row.revenue_usd),
+    ad_revenue_usd: parseNum(row.ad_revenue_usd),
+    iap_revenue_usd: parseNum(row.iap_revenue_usd),
     avg_session_minutes: parseNum(row.avg_session_minutes),
-    cohort_date:        row.cohort_date ?? '',
-    d1_active_users:    parseNum(row.d1_active_users),
-    d3_active_users:    parseNum(row.d3_active_users),
-    d7_active_users:    parseNum(row.d7_active_users),
+    cohort_date: row.cohort_date ?? '',
+    d1_active_users: parseNum(row.d1_active_users),
+    d3_active_users: parseNum(row.d3_active_users),
+    d7_active_users: parseNum(row.d7_active_users),
   }));
 
-  const totalImpressions = parsed.reduce((s, r) => s + r.impressions, 0);
-  const totalClicks      = parsed.reduce((s, r) => s + r.clicks, 0);
-  const totalInstalls    = parsed.reduce((s, r) => s + r.installs, 0);
-  const totalSpend       = parsed.reduce((s, r) => s + r.spend_usd, 0);
-  const totalDau         = parsed.reduce((s, r) => s + r.dau, 0);
-  const totalNewUsers    = parsed.reduce((s, r) => s + r.new_users, 0);
-  const totalRevenue     = parsed.reduce((s, r) => s + r.revenue_usd, 0);
-  const totalD1          = parsed.reduce((s, r) => s + r.d1_active_users, 0);
-  const totalD3          = parsed.reduce((s, r) => s + r.d3_active_users, 0);
-  const totalD7          = parsed.reduce((s, r) => s + r.d7_active_users, 0);
-
-  // Day1 playtime: 첫날(코호트 기준) 행들의 평균 세션 시간
-  const day1Rows = parsed.filter((r) => r.cohort_date && r.cohort_date === r.date);
-  const day1Playtime = day1Rows.length > 0
-    ? day1Rows.reduce((s, r) => s + r.avg_session_minutes, 0) / day1Rows.length
-    : parsed.reduce((s, r) => s + r.avg_session_minutes, 0) / Math.max(parsed.length, 1);
-
-  const calculatedKpis = {
-    cpi:          totalInstalls > 0 ? Math.round((totalSpend / totalInstalls) * 1000) / 1000 : 0,
-    ctr:          totalImpressions > 0 ? Math.round((totalClicks / totalImpressions) * 10000) / 100 : 0,
-    ipm:          totalImpressions > 0 ? Math.round((totalInstalls / (totalImpressions / 1000)) * 10) / 10 : 0,
-    d1Retention:  totalNewUsers > 0 ? Math.round((totalD1 / totalNewUsers) * 1000) / 10 : 0,
-    d3Retention:  totalNewUsers > 0 ? Math.round((totalD3 / totalNewUsers) * 1000) / 10 : 0,
-    d7Retention:  totalNewUsers > 0 ? Math.round((totalD7 / totalNewUsers) * 1000) / 10 : 0,
-    arpdau:       totalDau > 0 ? Math.round((totalRevenue / totalDau) * 10000) / 10000 : 0,
-    day1Playtime: Math.round(day1Playtime * 10) / 10,
-  };
-
-  const campaigns = [...new Set(parsed.map((r) => r.campaign_name).filter(Boolean))];
+  const sum = (key: keyof RawDataRow) => parsed.reduce((total, row) => total + Number(row[key] || 0), 0);
+  const impressions = sum('impressions');
+  const clicks = sum('clicks');
+  const installs = sum('installs');
+  const spend = sum('spend_usd');
+  const dau = sum('dau');
+  const newUsers = sum('new_users');
+  const revenue = sum('revenue_usd');
+  const d1 = sum('d1_active_users');
+  const d3 = sum('d3_active_users');
+  const d7 = sum('d7_active_users');
+  const day1Rows = parsed.filter((row) => row.date && row.date === row.cohort_date);
+  const playtimeRows = day1Rows.length > 0 ? day1Rows : parsed;
+  const avgPlaytime = playtimeRows.reduce((total, row) => total + row.avg_session_minutes, 0) / Math.max(playtimeRows.length, 1);
 
   return {
     rows: parsed,
     rowCount: parsed.length,
-    campaigns,
-    calculatedKpis,
+    campaigns: [...new Set(parsed.map((row) => row.campaign_name).filter(Boolean))],
+    calculatedKpis: {
+      cpi: installs > 0 ? Math.round((spend / installs) * 1000) / 1000 : 0,
+      ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+      ipm: impressions > 0 ? Math.round((installs / (impressions / 1000)) * 10) / 10 : 0,
+      d1Retention: newUsers > 0 ? Math.round((d1 / newUsers) * 1000) / 10 : 0,
+      d3Retention: newUsers > 0 ? Math.round((d3 / newUsers) * 1000) / 10 : 0,
+      d7Retention: newUsers > 0 ? Math.round((d7 / newUsers) * 1000) / 10 : 0,
+      arpdau: dau > 0 ? Math.round((revenue / dau) * 10000) / 10000 : 0,
+      day1Playtime: Math.round(avgPlaytime * 10) / 10,
+    },
+    warnings,
   };
 }
 
 export function generateRawDataTemplate(): string {
   return [
     'date,campaign_name,impressions,clicks,installs,spend_usd,dau,new_users,revenue_usd,ad_revenue_usd,iap_revenue_usd,avg_session_minutes,cohort_date,d1_active_users,d3_active_users,d7_active_users',
-    '2026-04-01,Campaign A,100000,2800,320,140.5,850,320,18.5,14.2,4.3,7.8,2026-04-01,112,48,22',
-    '2026-04-02,Campaign B,85000,2100,245,112.0,920,245,22.1,16.8,5.3,8.2,2026-04-02,88,38,19',
-    '2026-04-03,Campaign A,92000,2450,290,128.0,980,290,19.8,15.1,4.7,7.5,2026-04-03,101,44,20',
+    ',,,,,,,,,,,,,,,',
   ].join('\n');
 }
 
 export function generateKpiTemplate(): string {
-  return [
-    'game_name,cpi,ctr,ipm,d1_retention,d3_retention,d7_retention,arpdau,day1_playtime',
-    'My Casual Game,0.45,2.1,28,32,14,6,0.025,6.5',
-  ].join('\n');
+  return ['game_name,cpi,ctr,ipm,d1_retention,d3_retention,d7_retention,arpdau,day1_playtime', ',,,,,,,,'].join('\n');
 }
 
 export function downloadCsv(content: string, filename: string): void {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF', content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

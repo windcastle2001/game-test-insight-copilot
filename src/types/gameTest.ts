@@ -1,4 +1,22 @@
-// ─── Analysis Settings (분석 기준 설정) ───────────────────────────────────────
+export type GameGenre = '하이퍼캐주얼' | '하이브리드캐주얼' | '캐주얼';
+
+export interface GameTestData {
+  gameName: string;
+  gameGenre: GameGenre;
+  testPeriod: string;
+  cpi: number;
+  ctr: number;
+  ipm: number;
+  d1Retention: number;
+  d3Retention: number;
+  d7Retention: number;
+  arpdau: number;
+  day1Playtime: number;
+}
+
+export type KpiStatus = 'good' | 'watch' | 'risk';
+export type Decision = 'scale' | 'iterate' | 'kill';
+
 export interface AnalysisSettings {
   thresholds: {
     cpi: { good: number; watch: number };
@@ -11,7 +29,7 @@ export interface AnalysisSettings {
     day1Playtime: { good: number; watch: number };
   };
   weights: {
-    marketability: number;  // 0-100, 합계 = 100
+    marketability: number;
     retention: number;
     monetization: number;
   };
@@ -20,20 +38,19 @@ export interface AnalysisSettings {
 
 export const DEFAULT_SETTINGS: AnalysisSettings = {
   thresholds: {
-    cpi:          { good: 0.4,  watch: 0.8 },
-    ctr:          { good: 2.5,  watch: 1.5 },
-    ipm:          { good: 35,   watch: 20 },
-    d1Retention:  { good: 35,   watch: 25 },
-    d3Retention:  { good: 18,   watch: 10 },
-    d7Retention:  { good: 8,    watch: 4 },
-    arpdau:       { good: 0.04, watch: 0.02 },
-    day1Playtime: { good: 8,    watch: 5 },
+    cpi: { good: 0.4, watch: 0.8 },
+    ctr: { good: 2.5, watch: 1.5 },
+    ipm: { good: 35, watch: 20 },
+    d1Retention: { good: 35, watch: 25 },
+    d3Retention: { good: 18, watch: 10 },
+    d7Retention: { good: 8, watch: 4 },
+    arpdau: { good: 0.04, watch: 0.02 },
+    day1Playtime: { good: 8, watch: 5 },
   },
   weights: { marketability: 35, retention: 45, monetization: 20 },
   customPrompt: '',
 };
 
-// ─── Trend Analysis (동향 분석) ───────────────────────────────────────────────
 export interface TrendDataRow {
   date: string;
   source: string;
@@ -49,7 +66,10 @@ export interface TrendCluster {
   negativeCount: number;
   neutralCount: number;
   sentiment: 'positive' | 'negative' | 'neutral';
-  sentimentRatio: number; // 부정 비율 0-100
+  sentimentRatio: number;
+  tags: string[];
+  representativeTexts: string[];
+  averageSimilarity: number;
 }
 
 export interface TrendAnalysisResult {
@@ -58,12 +78,14 @@ export interface TrendAnalysisResult {
   clusters: TrendCluster[];
   topInsights: string[];
   overallSentiment: 'positive' | 'negative' | 'neutral';
-  confidenceAdjustment: number; // -20 ~ +20, 최종 confidence 보정값
-  weightAdjustment: number;     // 0-30, 동향 반영 가중치 (유저 설정)
+  confidenceAdjustment: number;
+  weightAdjustment: number;
   applyToAnalysis: boolean;
+  warnings: string[];
+  tagSummary: Array<{ tag: string; count: number }>;
+  methodDescription: string;
 }
 
-// ─── Raw Data (원시 데이터) ───────────────────────────────────────────────────
 export interface RawDataRow {
   date: string;
   campaign_name: string;
@@ -87,38 +109,18 @@ export interface RawDataParseResult {
   rows: RawDataRow[];
   rowCount: number;
   campaigns: string[];
-  calculatedKpis: {
-    cpi: number;
-    ctr: number;
-    ipm: number;
-    d1Retention: number;
-    d3Retention: number;
-    d7Retention: number;
-    arpdau: number;
-    day1Playtime: number;
-  };
+  calculatedKpis: Pick<
+    GameTestData,
+    'cpi' | 'ctr' | 'ipm' | 'd1Retention' | 'd3Retention' | 'd7Retention' | 'arpdau' | 'day1Playtime'
+  >;
+  warnings: string[];
 }
-
-// ─── Game Test Data ───────────────────────────────────────────────────────────
-export interface GameTestData {
-  gameName: string;
-  gameGenre: '하이퍼캐주얼' | '하이브리드캐주얼' | '캐주얼';
-  testPeriod: string;
-  cpi: number;          // Cost Per Install ($)
-  ctr: number;          // Click-Through Rate (%)
-  ipm: number;          // Installs Per Mille
-  d1Retention: number;  // Day 1 잔존율 (%)
-  d3Retention: number;  // Day 3 잔존율 (%)
-  d7Retention: number;  // Day 7 잔존율 (%)
-  arpdau: number;       // Average Revenue Per DAU ($)
-  day1Playtime: number; // Day 1 평균 플레이 시간 (분)
-}
-
-export type KpiStatus = 'good' | 'watch' | 'risk';
-export type Decision = 'scale' | 'iterate' | 'kill';
 
 export interface KpiCard {
-  key: string;
+  key: keyof Pick<
+    GameTestData,
+    'cpi' | 'ctr' | 'ipm' | 'd1Retention' | 'd3Retention' | 'd7Retention' | 'arpdau' | 'day1Playtime'
+  >;
   name: string;
   korName: string;
   value: number;
@@ -163,6 +165,8 @@ export interface AnalysisResult {
     recommendedDirectionKor: string;
   };
   experimentPlan: ExperimentItem[];
+  decisionReasons: string[];
+  formulaSummary: string;
   meetingSummary: string;
   meetingSummaryKor: string;
 }
