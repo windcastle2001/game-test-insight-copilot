@@ -101,6 +101,21 @@ export interface TrendAnalysisResult {
   totalCount: number;
   dateRange: { from: string; to: string };
   clusters: TrendCluster[];
+  themes: Array<{
+    tag: string;
+    count: number;
+    negativeRatio: number;
+    sources: string[];
+    representativeTexts: string[];
+    userRequests: string[];
+    decisionImplication: string;
+  }>;
+  chunkSummaries: Array<{
+    range: string;
+    count: number;
+    topTags: string[];
+    summary: string;
+  }>;
   topInsights: string[];
   overallSentiment: 'positive' | 'negative' | 'neutral';
   confidenceAdjustment: number;

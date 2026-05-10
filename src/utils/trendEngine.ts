@@ -139,6 +139,90 @@ function validateRows(originalRows: Record<string, string>[], rows: TrendDataRow
   return warnings.slice(0, 12);
 }
 
+function sourceLabel(source: string): string {
+  const lower = source.toLowerCase();
+  if (lower.includes('google')) return 'Google Play';
+  if (lower.includes('apple')) return 'Apple App Store';
+  if (lower.includes('community') || lower.includes('official')) return 'Official Community';
+  return source || 'Unknown';
+}
+
+function requestForTag(tag: string): string {
+  const requests: Record<string, string> = {
+    '광고 피로': '강제 광고 빈도와 노출 타이밍을 줄이고, 보상형 광고의 선택권과 보상 가치를 재조정해야 합니다.',
+    '결제 압박': '초반 패키지 팝업을 늦추고, 결제 제안보다 플레이 목표와 보상 이해를 먼저 제공해야 합니다.',
+    '튜토리얼/온보딩': '첫 세션 목표, 조작 설명, 핵심 재미 도달 시간을 줄여 온보딩 이탈을 낮춰야 합니다.',
+    '난이도': '막히는 스테이지의 난이도 상승 폭과 실패 후 재도전 보상을 조정해야 합니다.',
+    '반복/지루함': '반복 체감이 오기 전에 새 기믹, 목표, 보상 루프를 더 빨리 열어야 합니다.',
+    '재미/몰입': '긍정적으로 언급된 손맛, 캐릭터, 짧은 플레이 장점을 소재와 초반 경험에 더 전면 배치해야 합니다.',
+    '버그/성능': '광고 복귀, 발열, 멈춤 등 안정성 이슈를 UA 확대 전 우선 수정해야 합니다.',
+    '스토어/광고소재': '광고 소재와 스토어 이미지, 실제 첫 플레이 장면의 기대값을 맞춰야 합니다.',
+    '커뮤니티 반응': '공식 커뮤니티에서 반복되는 요청을 다음 빌드 노트와 실험 항목으로 연결해야 합니다.',
+  };
+  return requests[tag] ?? '반복 언급된 불만과 요청을 다음 실험의 검증 항목으로 분리해야 합니다.';
+}
+
+function implicationForTag(tag: string, count: number, negativeRatio: number): string {
+  const severity = negativeRatio >= 60 ? '강한 부정 신호' : negativeRatio >= 35 ? '주의 신호' : '보조 신호';
+  const base = `${count}건, 부정 ${negativeRatio}%의 ${severity}입니다.`;
+  const implications: Record<string, string> = {
+    '광고 피로': `${base} 광고 수익화 지표가 낮다면 광고를 늘리는 방식보다 광고 구조 재설계가 먼저입니다.`,
+    '튜토리얼/온보딩': `${base} D0/D1 리텐션이 낮다면 첫 경험 이해 실패가 핵심 병목일 가능성이 큽니다.`,
+    '난이도': `${base} D3/D7 하락과 함께 보이면 중기 잔존 개선 실험의 우선순위가 높습니다.`,
+    '스토어/광고소재': `${base} CPI 또는 Store CVR이 나쁘다면 소재-스토어-실제 플레이 기대 불일치를 의심해야 합니다.`,
+    '버그/성능': `${base} 안정성 이슈는 KPI 해석을 왜곡할 수 있어 UA 확대 전 차단 조건입니다.`,
+    '반복/지루함': `${base} 플레이타임과 D3 이후 잔존이 낮다면 코어 루프 반복감이 이탈 원인일 수 있습니다.`,
+    '재미/몰입': `${base} 긍정 신호로 남길 수 있지만 다른 부정 클러스터를 상쇄할 만큼 큰지 확인해야 합니다.`,
+    '결제 압박': `${base} 초반 결제 노출이 리텐션과 리뷰 감성에 부담을 주는지 검증해야 합니다.`,
+    '커뮤니티 반응': `${base} 반복 요청은 정성 VOC 기반의 다음 빌드 우선순위로 다뤄야 합니다.`,
+  };
+  return implications[tag] ?? `${base} 정량 KPI와 연결해 원인 가설로 검증해야 합니다.`;
+}
+
+function buildTrendThemes(rows: TrendDataRow[]) {
+  const taggedRows = rows.map((row) => {
+    const text = `${row.source} ${row.title} ${row.content} ${row.category}`;
+    return { row, text, tags: detectTags(text), sentiment: detectSentiment(text) };
+  });
+  const tagMap = new Map<string, typeof taggedRows>();
+  taggedRows.forEach((item) => item.tags.forEach((tag) => tagMap.set(tag, [...(tagMap.get(tag) ?? []), item])));
+  return [...tagMap.entries()]
+    .map(([tag, items]) => {
+      const negativeCount = items.filter((item) => item.sentiment === 'negative').length;
+      const negativeRatio = Math.round((negativeCount / Math.max(items.length, 1)) * 100);
+      return {
+        tag,
+        count: items.length,
+        negativeRatio,
+        sources: [...new Set(items.map((item) => sourceLabel(item.row.source)))],
+        representativeTexts: items.slice(0, 3).map((item) => item.row.content || item.row.title),
+        userRequests: [requestForTag(tag)],
+        decisionImplication: implicationForTag(tag, items.length, negativeRatio),
+      };
+    })
+    .sort((a, b) => b.count - a.count || b.negativeRatio - a.negativeRatio)
+    .slice(0, 8);
+}
+
+function buildChunkSummaries(rows: TrendDataRow[], chunkSize = 100) {
+  const summaries = [];
+  for (let start = 0; start < rows.length; start += chunkSize) {
+    const chunk = rows.slice(start, start + chunkSize);
+    const tagCounts = new Map<string, number>();
+    chunk.forEach((row) => detectTags(`${row.source} ${row.title} ${row.content} ${row.category}`).forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)));
+    const topTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([tag, count]) => `${tag} ${count}건`);
+    const from = start + 1;
+    const to = start + chunk.length;
+    summaries.push({
+      range: `${from}-${to}`,
+      count: chunk.length,
+      topTags,
+      summary: `${from}-${to}번 동향에서는 ${topTags.join(', ') || '주요 태그 없음'}이 많이 반복됩니다.`,
+    });
+  }
+  return summaries;
+}
+
 export function analyzeTrendData(
   rows: TrendDataRow[],
   weightAdjustment = 15,
@@ -150,6 +234,8 @@ export function analyzeTrendData(
       totalCount: 0,
       dateRange: { from: '', to: '' },
       clusters: [],
+      themes: [],
+      chunkSummaries: [],
       topInsights: [],
       overallSentiment: 'neutral',
       confidenceAdjustment: 0,
@@ -162,6 +248,8 @@ export function analyzeTrendData(
   }
 
   const rawClusters = clusterRows(rows);
+  const themes = buildTrendThemes(rows);
+  const chunkSummaries = buildChunkSummaries(rows);
   const dates = rows.map((row) => row.date).filter(Boolean).sort();
   const tagCounts = new Map<string, number>();
   rawClusters.forEach((cluster) => cluster.items.forEach((item) => item.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1))));
@@ -214,10 +302,13 @@ export function analyzeTrendData(
     totalCount: rows.length,
     dateRange: { from: dates[0] ?? '', to: dates[dates.length - 1] ?? '' },
     clusters,
+    themes,
+    chunkSummaries,
     topInsights: [
       top ? `가장 큰 유사 반응 묶음은 "${top.name}"이며 ${top.count}건입니다.` : '',
       riskCluster ? `"${riskCluster.name}" 묶음의 부정 비율이 ${riskCluster.sentimentRatio}%라서 우선 확인이 필요합니다.` : '',
       tagSummary[0] ? `가장 많이 붙은 이슈 태그는 "${tagSummary[0].tag}" (${tagSummary[0].count}건)입니다.` : '',
+      themes[0] ? `주요 건의 사항: ${themes[0].userRequests[0]}` : '',
       applyToAnalysis ? `동향 신호가 판단 근거 강도에 ${rawAdjustment > 0 ? '+' : ''}${rawAdjustment}%p 반영됩니다.` : '동향 신호는 화면에만 표시되고 판단 근거 강도에는 반영되지 않습니다.',
     ].filter(Boolean),
     overallSentiment,

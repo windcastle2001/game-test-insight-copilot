@@ -199,6 +199,25 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
             <div className="tag-cloud">
               {trendResult.tagSummary.slice(0, 8).map((item) => <span key={item.tag}>{item.tag} {item.count}</span>)}
             </div>
+            <div className="trend-theme-list">
+              {trendResult.themes.slice(0, 5).map((theme) => (
+                <article className="trend-theme-card" key={theme.tag}>
+                  <div>
+                    <strong>{theme.tag}</strong>
+                    <span>{theme.count}건 · 부정 {theme.negativeRatio}% · {theme.sources.join(', ')}</span>
+                  </div>
+                  <p>{theme.decisionImplication}</p>
+                  <small>{theme.userRequests.join(' ')}</small>
+                </article>
+              ))}
+            </div>
+            {trendResult.chunkSummaries.length > 1 && (
+              <div className="chunk-summary-list">
+                {trendResult.chunkSummaries.slice(0, 6).map((chunk) => (
+                  <span key={chunk.range}>{chunk.range}: {chunk.topTags.join(', ')}</span>
+                ))}
+              </div>
+            )}
             {trendResult.topInsights.slice(0, 3).map((item) => <p key={item}>{item}</p>)}
           </div>
         ) : (

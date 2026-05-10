@@ -172,6 +172,22 @@ function rawMetricSummaryLines(data: GameTestData): string {
   return data.rawMetricSummary?.length ? data.rawMetricSummary.map((line) => `- ${line}`).join('\n') : '- 커스텀 raw 지표 없음';
 }
 
+function trendThemeLines(trendData?: TrendAnalysisResult | null): string {
+  if (!trendData || trendData.themes.length === 0) return '- 동향 테마 요약 없음';
+  return trendData.themes
+    .slice(0, 8)
+    .map((theme) => `- ${theme.tag}: ${theme.count}건, 부정 ${theme.negativeRatio}%, 출처 ${theme.sources.join('/')}. 건의: ${theme.userRequests.join(' ')} 시사점: ${theme.decisionImplication}`)
+    .join('\n');
+}
+
+function trendChunkLines(trendData?: TrendAnalysisResult | null): string {
+  if (!trendData || trendData.chunkSummaries.length <= 1) return '- 청크 요약 없음';
+  return trendData.chunkSummaries
+    .slice(0, 8)
+    .map((chunk) => `- ${chunk.range} (${chunk.count}건): ${chunk.topTags.join(', ')}`)
+    .join('\n');
+}
+
 function settingsLines(settings: AnalysisSettings): string {
   return Object.entries(settings.thresholds)
     .map(([key, value]) => `- ${key}: good ${value.good}, watch ${value.watch}`)
@@ -263,6 +279,8 @@ function buildPrompt(
 - 제너럴한 조언을 금지한다. decisionReasons와 aiInsight는 반드시 "지표 A + 지표 B = 원인 가설/실무 의미" 형태의 연결 가설을 포함하라.
 - 최소 3개의 연결 가설을 decisionReasons에 포함하라. 예: "Store CVR 14% + CPI $0.856 = 광고 클릭 이후 스토어 기대 불일치 가능성", "D0 Tutorial 58% + D1 22.5% = 온보딩 이해 실패가 첫날 이탈을 키울 가능성", "Ad Completion 52% + ARPDAU $0.0178 = 광고 수익화 구조가 유저 피로만 만들고 수익을 충분히 회수하지 못함".
 - experimentPlan은 각각 어떤 연결 가설을 검증하는 실험인지 targetKpi와 expectedImpactKor에 드러나야 한다.
+- 동향은 단순 클러스터 이름만 보지 말고, 아래 동향 테마 요약의 건수/부정 비율/건의 사항을 의사결정 근거에 반영하라.
+- 동향 건수가 많을 때는 청크 요약을 종합해 반복적으로 나타나는 요청을 우선순위화하라.
 
 게임: ${data.gameName}
 장르: ${data.gameGenre}
@@ -294,6 +312,12 @@ ${settingsLines(settings)}
 
 동향 클러스터:
 ${trendSummary}
+
+동향 테마 요약:
+${trendThemeLines(trendData)}
+
+동향 청크 요약:
+${trendChunkLines(trendData)}
 ${customPrompt}
 
 반드시 API에 제공된 JSON schema와 같은 JSON 객체만 반환:
