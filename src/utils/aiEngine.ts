@@ -48,7 +48,7 @@ export async function generateGeminiAnalysis(
   if (!isGeminiEnabled()) return { analysis: null, statusMessage: 'Gemini API 키가 설정되지 않아 로컬 분석으로 대체했습니다.' };
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
