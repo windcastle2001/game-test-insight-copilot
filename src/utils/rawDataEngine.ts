@@ -1,5 +1,47 @@
 import type { GameGenre, GameTestData, RawDataParseResult, RawDataRow } from '../types/gameTest';
 
+export interface RawMetricColumn {
+  key: string;
+  label: string;
+  required?: boolean;
+  selected: boolean;
+  custom?: boolean;
+}
+
+export const DEFAULT_RAW_COLUMNS: RawMetricColumn[] = [
+  { key: 'game_name', label: '게임명', selected: true },
+  { key: 'game_genre', label: '게임 장르', selected: true },
+  { key: 'test_period', label: '테스트 기간', selected: true },
+  { key: 'date', label: '날짜', required: true, selected: true },
+  { key: 'campaign_name', label: '캠페인명', required: true, selected: true },
+  { key: 'impressions', label: '노출 수', required: true, selected: true },
+  { key: 'clicks', label: '클릭 수', required: true, selected: true },
+  { key: 'installs', label: '설치 수', required: true, selected: true },
+  { key: 'spend_usd', label: '광고비 USD', required: true, selected: true },
+  { key: 'dau', label: 'DAU', required: true, selected: true },
+  { key: 'new_users', label: '신규 유저', required: true, selected: true },
+  { key: 'revenue_usd', label: '매출 USD', required: true, selected: true },
+  { key: 'cohort_date', label: '코호트 날짜', required: true, selected: true },
+  { key: 'd1_active_users', label: 'D1 활성 유저', required: true, selected: true },
+  { key: 'd3_active_users', label: 'D3 활성 유저', required: true, selected: true },
+  { key: 'd7_active_users', label: 'D7 활성 유저', required: true, selected: true },
+  { key: 'ad_revenue_usd', label: '광고 매출 USD', selected: true },
+  { key: 'iap_revenue_usd', label: 'IAP 매출 USD', selected: true },
+  { key: 'avg_session_minutes', label: '평균 세션 시간', selected: true },
+  { key: 'd14_active_users', label: 'D14 활성 유저', selected: false },
+  { key: 'd30_active_users', label: 'D30 활성 유저', selected: false },
+  { key: 'tutorial_starts', label: '튜토리얼 시작', selected: false },
+  { key: 'tutorial_completes', label: '튜토리얼 완료', selected: false },
+  { key: 'first_session_users', label: '첫 세션 유저', selected: false },
+  { key: 'first_session_exits', label: '첫 세션 이탈', selected: false },
+  { key: 'ad_starts', label: '광고 시작', selected: false },
+  { key: 'ad_completes', label: '광고 완료', selected: false },
+  { key: 'store_page_views', label: '스토어 페이지 조회', selected: false },
+  { key: 'store_installs', label: '스토어 설치', selected: false },
+];
+
+const knownRawFields = new Set(DEFAULT_RAW_COLUMNS.map((column) => column.key));
+
 function parseNum(value: string | undefined): number {
   if (!value) return 0;
   const n = Number.parseFloat(value.trim());
@@ -24,7 +66,7 @@ function validateRawRows(rows: Record<string, string>[]): string[] {
   const warnings: string[] = [];
   const required = ['date', 'campaign_name', 'impressions', 'clicks', 'installs', 'spend_usd', 'dau', 'new_users', 'revenue_usd', 'cohort_date', 'd1_active_users', 'd3_active_users', 'd7_active_users'];
   const optionalNumeric = ['d14_active_users', 'd30_active_users', 'tutorial_starts', 'tutorial_completes', 'first_session_users', 'first_session_exits', 'ad_starts', 'ad_completes', 'store_page_views', 'store_installs'];
-  if (rows.length === 0) return ['Raw Data CSV에 분석할 행이 없습니다.'];
+  if (rows.length === 0) return ['원본 지표 CSV에 분석할 행이 없습니다.'];
   const headers = Object.keys(normalizeRow(rows[0]));
   required.forEach((field) => {
     if (!headers.includes(field)) warnings.push(`필수 컬럼 누락: ${field}`);
@@ -57,7 +99,7 @@ function parseGenre(value: string): GameGenre | undefined {
   return undefined;
 }
 
-export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseResult {
+export function parseRawDataCsv(rows: Record<string, string>[], selectedColumns: RawMetricColumn[] = DEFAULT_RAW_COLUMNS): RawDataParseResult {
   const warnings = validateRawRows(rows);
   const parsed: RawDataRow[] = rows.map(normalizeRow).map((row) => ({
     game_name: row.game_name ?? '',
@@ -89,10 +131,6 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
     ad_completes: parseNum(row.ad_completes),
     store_page_views: parseNum(row.store_page_views),
     store_installs: parseNum(row.store_installs),
-    trend_source: row.trend_source ?? row.source ?? '',
-    trend_title: row.trend_title ?? row.title ?? '',
-    trend_content: row.trend_content ?? row.content ?? row.review_content ?? '',
-    trend_category: row.trend_category ?? row.category ?? '',
   }));
 
   const sum = (key: keyof RawDataRow) => parsed.reduce((total, row) => total + Number(row[key] || 0), 0);
@@ -120,6 +158,18 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
   Object.keys(optional).forEach((key) => {
     if (optional[key as keyof GameTestData] === undefined) delete optional[key as keyof GameTestData];
   });
+  const normalizedRows = rows.map(normalizeRow);
+  const extraMetricSummary = selectedColumns
+    .filter((column) => !knownRawFields.has(column.key))
+    .map((column) => {
+      const values = normalizedRows
+        .map((row) => Number.parseFloat(row[column.key] ?? ''))
+        .filter((value) => Number.isFinite(value));
+      if (values.length === 0) return `${column.label}(${column.key}): 숫자값 없음`;
+      const total = values.reduce((sum, value) => sum + value, 0);
+      const avg = total / values.length;
+      return `${column.label}(${column.key}): 평균 ${Math.round(avg * 100) / 100}, 합계 ${Math.round(total * 100) / 100}`;
+    });
 
   return {
     rows: parsed,
@@ -128,6 +178,7 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
     gameName: firstText(rows, 'game_name'),
     gameGenre: parseGenre(firstText(rows, 'game_genre')),
     testPeriod: firstText(rows, 'test_period'),
+    extraMetricSummary,
     calculatedKpis: {
       cpi: installs > 0 ? Math.round((spend / installs) * 1000) / 1000 : 0,
       ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
@@ -143,11 +194,9 @@ export function parseRawDataCsv(rows: Record<string, string>[]): RawDataParseRes
   };
 }
 
-export function generateRawDataTemplate(): string {
-  return [
-    'game_name,game_genre,test_period,date,campaign_name,impressions,clicks,installs,spend_usd,dau,new_users,revenue_usd,ad_revenue_usd,iap_revenue_usd,avg_session_minutes,cohort_date,d1_active_users,d3_active_users,d7_active_users,d14_active_users,d30_active_users,tutorial_starts,tutorial_completes,first_session_users,first_session_exits,ad_starts,ad_completes,store_page_views,store_installs,trend_source,trend_title,trend_content,trend_category',
-    ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,',
-  ].join('\n');
+export function generateRawDataTemplate(columns: RawMetricColumn[] = DEFAULT_RAW_COLUMNS): string {
+  const selected = columns.filter((column) => column.required || column.selected);
+  return [selected.map((column) => column.key).join(','), selected.map(() => '').join(',')].join('\n');
 }
 
 export function downloadCsv(content: string, filename: string): void {

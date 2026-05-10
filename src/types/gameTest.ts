@@ -20,6 +20,7 @@ export interface GameTestData {
   d30Retention?: number;
   roas?: number;
   ltv?: number;
+  rawMetricSummary?: string[];
 }
 
 export type KpiStatus = 'good' | 'watch' | 'risk';
@@ -140,10 +141,6 @@ export interface RawDataRow {
   ad_completes: number;
   store_page_views: number;
   store_installs: number;
-  trend_source: string;
-  trend_title: string;
-  trend_content: string;
-  trend_category: string;
 }
 
 export interface RawDataParseResult {
@@ -153,6 +150,7 @@ export interface RawDataParseResult {
   gameName: string;
   gameGenre?: GameGenre;
   testPeriod: string;
+  extraMetricSummary: string[];
   calculatedKpis: Partial<Pick<
     GameTestData,
     | 'cpi'

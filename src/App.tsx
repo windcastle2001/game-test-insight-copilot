@@ -58,7 +58,7 @@ export default function App() {
         </div>
       ) : (
         <section className="page-shell">
-          <div className="empty-panel strong">Raw Data CSV를 업로드하면 분석 결과가 여기에 표시됩니다.</div>
+          <div className="empty-panel strong">원본 지표 CSV를 업로드하면 분석 결과가 여기에 표시됩니다.</div>
         </section>
       )}
       <footer>Game Test Insight Copilot · Supercent AI Prototype</footer>

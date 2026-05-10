@@ -52,6 +52,7 @@ button { cursor: pointer; border: 0; }
   padding: 12px 18px; border-radius: 999px; background: var(--black); color: var(--white); font-weight: 900;
 }
 .settings-cta { background: var(--yellow); color: var(--black); box-shadow: 0 6px 0 var(--black); }
+.compact-cta { padding: 10px 15px; box-shadow: 0 4px 0 var(--black); }
 .outline-button, .ghost-button, .copy-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   padding: 10px 15px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--white); color: var(--black); font-weight: 800;
@@ -124,6 +125,27 @@ label { font-size: 12px; font-weight: 900; color: var(--gray-text); }
 .trend-inline { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: #fff7fb; }
 .trend-inline strong { color: var(--black); font-weight: 900; }
 .trend-inline p { margin-top: 8px; color: var(--gray-text); }
+.metric-modal { width: min(980px, 100%); }
+.metric-column-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 16px 0; }
+.metric-column {
+  display: grid;
+  grid-template-columns: 22px 1fr 34px;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafafa;
+}
+.metric-column.locked { background: #fffbea; border-color: #facc15; }
+.metric-column input { width: 18px; height: 18px; accent-color: var(--pink); }
+.metric-column b { display: block; color: var(--black); font-size: 13px; }
+.metric-column small { display: block; margin-top: 3px; color: var(--gray-muted); font-size: 11px; }
+.metric-column button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 999px; background: #fee2e2; color: #b91c1c; }
+.custom-metric-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--white); }
+.custom-metric-row input { width: 100%; padding: 11px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-weight: 800; outline: none; }
+.custom-metric-row input:focus { border-color: var(--pink); }
 .trend-result { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-top: 12px; }
 .trend-summary span { padding: 6px 10px; border-radius: 999px; background: var(--gray-bg); font-size: 12px; font-weight: 800; }
 .method-note { margin: 10px 0; color: var(--gray-muted); font-size: 12px; line-height: 1.55; }
@@ -199,7 +221,7 @@ footer { border-top: 1px solid var(--border); background: var(--white); color: v
 
 @media (max-width: 860px) {
   .header-inner, .trend-upload, .raw-upload-main, .decision-card { align-items: flex-start; flex-direction: column; }
-  .form-card, .kpi-grid, .health-grid, .chart-grid, .score-grid, .threshold-grid, .preset-grid, .raw-summary-grid, .kpi-preview-grid { grid-template-columns: 1fr; }
+  .form-card, .kpi-grid, .health-grid, .chart-grid, .score-grid, .threshold-grid, .preset-grid, .raw-summary-grid, .kpi-preview-grid, .metric-column-grid, .custom-metric-row { grid-template-columns: 1fr; }
   .cluster-row { grid-template-columns: 1fr; }
   .confidence { text-align: left; }
 }

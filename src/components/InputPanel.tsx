@@ -1,9 +1,9 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import Papa from 'papaparse';
-import { Download, Upload, Zap } from 'lucide-react';
+import { Download, Plus, Settings, Trash2, Upload, X, Zap } from 'lucide-react';
 import type { GameTestData, RawDataParseResult, TrendAnalysisResult } from '../types/gameTest';
-import { downloadCsv, generateRawDataTemplate, parseRawDataCsv } from '../utils/rawDataEngine';
-import { analyzeTrendData, parseTrendCsvRows } from '../utils/trendEngine';
+import { DEFAULT_RAW_COLUMNS, downloadCsv, generateRawDataTemplate, parseRawDataCsv, type RawMetricColumn } from '../utils/rawDataEngine';
+import { analyzeTrendData, generateTrendCsvTemplate, parseTrendCsvRows } from '../utils/trendEngine';
 
 interface Props {
   data: GameTestData | null;
@@ -37,6 +37,7 @@ function buildGameData(rawResult: RawDataParseResult): GameTestData {
     d30Retention: rawResult.calculatedKpis.d30Retention,
     roas: rawResult.calculatedKpis.roas,
     ltv: rawResult.calculatedKpis.ltv,
+    rawMetricSummary: rawResult.extraMetricSummary,
   };
 }
 
@@ -45,10 +46,10 @@ function buildTrendData(rows: Record<string, string>[]): TrendAnalysisResult | n
     .map((raw) => Object.fromEntries(Object.entries(raw).map(([key, value]) => [key.replace(/^\uFEFF/, '').trim().toLowerCase(), value ?? ''])))
     .map((row) => ({
       date: row.date ?? '',
-      source: row.trend_source ?? row.source ?? '',
-      title: row.trend_title ?? row.title ?? '',
-      content: row.trend_content ?? row.content ?? row.review_content ?? '',
-      category: row.trend_category ?? row.category ?? '',
+      source: row.source ?? '',
+      title: row.title ?? '',
+      content: row.content ?? row.review_content ?? '',
+      category: row.category ?? '',
     }))
     .filter((row) => row.title.trim() || row.content.trim());
 
@@ -70,8 +71,13 @@ const previewMetrics: Array<{ key: keyof GameTestData; label: string; suffix: st
 
 export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyze, isLoading, loadingStep }: Props) {
   const rawFileRef = useRef<HTMLInputElement>(null);
+  const trendFileRef = useRef<HTMLInputElement>(null);
   const [rawResult, setRawResult] = useState<RawDataParseResult | null>(null);
   const [trendResult, setTrendResult] = useState<TrendAnalysisResult | null>(null);
+  const [columns, setColumns] = useState<RawMetricColumn[]>(DEFAULT_RAW_COLUMNS);
+  const [isMetricModalOpen, setIsMetricModalOpen] = useState(false);
+  const [customKey, setCustomKey] = useState('');
+  const [customLabel, setCustomLabel] = useState('');
 
   const uploadRaw = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -81,38 +87,67 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
       skipEmptyLines: true,
       complete: ({ data: rows }) => {
         const sourceRows = rows as Record<string, string>[];
-        const nextRaw = parseRawDataCsv(sourceRows);
+        const nextRaw = parseRawDataCsv(sourceRows, columns);
         const nextGame = buildGameData(nextRaw);
-        const nextTrend = buildTrendData(sourceRows);
         setRawResult(nextRaw);
-        setTrendResult(nextTrend);
         onChange(nextGame);
+      },
+    });
+    event.target.value = '';
+  };
+
+  const uploadTrend = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: ({ data: rows }) => {
+        const nextTrend = buildTrendData(rows as Record<string, string>[]);
+        setTrendResult(nextTrend);
         onTrendDataChange(nextTrend);
       },
     });
     event.target.value = '';
   };
 
+  const toggleColumn = (key: string) => {
+    setColumns((current) => current.map((column) => column.key === key && !column.required ? { ...column, selected: !column.selected } : column));
+  };
+
+  const removeCustomColumn = (key: string) => {
+    setColumns((current) => current.filter((column) => column.key !== key || !column.custom));
+  };
+
+  const addCustomColumn = () => {
+    const normalizedKey = customKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    if (!normalizedKey || columns.some((column) => column.key === normalizedKey)) return;
+    setColumns((current) => [...current, { key: normalizedKey, label: customLabel.trim() || normalizedKey, selected: true, custom: true }]);
+    setCustomKey('');
+    setCustomLabel('');
+  };
+
   const ready = Boolean(data && rawResult);
+  const selectedColumnCount = columns.filter((column) => column.required || column.selected).length;
 
   return (
     <section className="page-shell input-section">
       <div className="section-heading">
-        <p className="section-eyebrow">Raw Data Upload</p>
-        <h2>CSV 하나로 KPI와 유저 동향을 자동 분석합니다</h2>
-        <p>광고, 코호트, 매출, 플레이, 리뷰/커뮤니티 텍스트를 한 파일로 올리면 KPI를 계산하고 Gemini가 판단과 액션을 생성합니다.</p>
+        <p className="section-eyebrow">Data Upload</p>
+        <h2>라이브 지표와 동향 데이터를 분리해서 업로드합니다</h2>
+        <p>먼저 raw 지표 CSV로 KPI를 계산하고, 별도 동향 CSV로 리뷰/커뮤니티 반응을 묶은 뒤 Gemini 분석을 생성합니다.</p>
       </div>
 
       <div className="raw-card raw-only-card">
         <div className="raw-upload-main">
           <div>
-            <strong>Raw Data CSV</strong>
-            <p>필수: date, campaign_name, impressions, clicks, installs, spend_usd, dau, new_users, revenue_usd, cohort_date, d1_active_users, d3_active_users, d7_active_users</p>
-            <p>선택: game_name, game_genre, test_period, d14/d30, tutorial, ad, store, trend_source, trend_title, trend_content, trend_category</p>
+            <strong>원본 라이브 지표 CSV</strong>
+            <p>선택된 {selectedColumnCount}개 컬럼 기준으로 빈 CSV를 만들고, 업로드 시 KPI를 자동 계산합니다.</p>
           </div>
           <div className="button-row">
+            <button className="settings-cta compact-cta" type="button" onClick={() => setIsMetricModalOpen(true)}><Settings size={15} /> raw 지표 선택</button>
             <button className="primary-button" type="button" onClick={() => rawFileRef.current?.click()}><Upload size={15} /> CSV 업로드</button>
-            <button className="outline-button" type="button" onClick={() => downloadCsv(generateRawDataTemplate(), 'raw_data_blank_template.csv')}><Download size={15} /> 빈 양식</button>
+            <button className="outline-button" type="button" onClick={() => downloadCsv(generateRawDataTemplate(columns), 'raw_metrics_template.csv')}><Download size={15} /> 지표 빈 양식</button>
             <input ref={rawFileRef} type="file" accept=".csv" onChange={uploadRaw} hidden />
           </div>
         </div>
@@ -123,7 +158,7 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
               <span><b>{data.gameName}</b> {data.gameGenre}</span>
               <span>{rawResult.rowCount}개 행</span>
               <span>{rawResult.campaigns.length}개 캠페인</span>
-              <span>동향 {trendResult?.totalCount ?? 0}건</span>
+              <span>커스텀 지표 {rawResult.extraMetricSummary.length}개</span>
             </div>
             {rawResult.warnings.length > 0 && <div className="warning-box">{rawResult.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>}
             <div className="kpi-preview-grid">
@@ -134,20 +169,75 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
                 </div>
               ))}
             </div>
-            {trendResult && (
-              <div className="trend-inline">
-                <strong>동향 클러스터</strong>
-                <div className="tag-cloud">
-                  {trendResult.tagSummary.slice(0, 6).map((item) => <span key={item.tag}>{item.tag} {item.count}</span>)}
-                </div>
-                {trendResult.topInsights.slice(0, 2).map((item) => <p key={item}>{item}</p>)}
-              </div>
-            )}
           </div>
         ) : (
-          <div className="empty-panel">아직 업로드된 Raw Data가 없습니다. CSV를 올리면 계산된 KPI와 동향 요약이 이곳에 표시됩니다.</div>
+          <div className="empty-panel">아직 업로드된 지표 CSV가 없습니다. 빈 양식을 받은 뒤 데이터를 채워 올려주세요.</div>
         )}
       </div>
+
+      <div className="raw-card raw-only-card">
+        <div className="raw-upload-main">
+          <div>
+            <strong>동향 CSV</strong>
+            <p>필수 컬럼: date, source, title, content, category</p>
+          </div>
+          <div className="button-row">
+            <button className="primary-button" type="button" onClick={() => trendFileRef.current?.click()}><Upload size={15} /> 동향 CSV 업로드</button>
+            <button className="outline-button" type="button" onClick={() => downloadCsv(generateTrendCsvTemplate(), 'trend_template.csv')}><Download size={15} /> 동향 빈 양식</button>
+            <input ref={trendFileRef} type="file" accept=".csv" onChange={uploadTrend} hidden />
+          </div>
+        </div>
+        {trendResult ? (
+          <div className="trend-inline">
+            <div className="raw-summary-grid">
+              <span><b>{trendResult.totalCount}건</b> 동향 데이터</span>
+              <span>{trendResult.dateRange.from || '-'} ~ {trendResult.dateRange.to || '-'}</span>
+              <span>클러스터 {trendResult.clusters.length}개</span>
+              <span>감성 {trendResult.overallSentiment}</span>
+            </div>
+            {trendResult.warnings.length > 0 && <div className="warning-box">{trendResult.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div>}
+            <div className="tag-cloud">
+              {trendResult.tagSummary.slice(0, 8).map((item) => <span key={item.tag}>{item.tag} {item.count}</span>)}
+            </div>
+            {trendResult.topInsights.slice(0, 3).map((item) => <p key={item}>{item}</p>)}
+          </div>
+        ) : (
+          <div className="empty-panel">동향 CSV를 올리면 리뷰/커뮤니티 반응 클러스터가 이곳에 표시됩니다.</div>
+        )}
+      </div>
+
+      {isMetricModalOpen && (
+        <div className="modal-backdrop">
+          <div className="settings-modal metric-modal">
+            <div className="modal-head">
+              <div>
+                <p className="section-eyebrow">Raw Metric Settings</p>
+                <h2>CSV에 넣을 raw 지표 선택</h2>
+                <p>필수 컬럼은 고정되고, 선택한 후보와 커스텀 지표만 빈 CSV에 포함됩니다.</p>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setIsMetricModalOpen(false)}><X size={18} /></button>
+            </div>
+            <div className="metric-column-grid">
+              {columns.map((column) => (
+                <label className={`metric-column ${column.required ? 'locked' : ''}`} key={column.key}>
+                  <input type="checkbox" checked={column.required || column.selected} disabled={column.required} onChange={() => toggleColumn(column.key)} />
+                  <span><b>{column.label}</b><small>{column.key}{column.required ? ' · 필수' : column.custom ? ' · 커스텀' : ''}</small></span>
+                  {column.custom && <button type="button" onClick={(event) => { event.preventDefault(); removeCustomColumn(column.key); }}><Trash2 size={14} /></button>}
+                </label>
+              ))}
+            </div>
+            <div className="custom-metric-row">
+              <input placeholder="컬럼명 예: level_fail_count" value={customKey} onChange={(event) => setCustomKey(event.target.value)} />
+              <input placeholder="표시명 예: 레벨 실패 횟수" value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} />
+              <button className="primary-button" type="button" onClick={addCustomColumn}><Plus size={15} /> 추가</button>
+            </div>
+            <div className="modal-actions">
+              <button className="outline-button" type="button" onClick={() => setColumns(DEFAULT_RAW_COLUMNS)}>기본값 복원</button>
+              <button className="primary-button" type="button" onClick={() => setIsMetricModalOpen(false)}>적용</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <button className="analyze-button" type="button" disabled={isLoading || !ready} onClick={onAnalyze}>
         <Zap size={18} />

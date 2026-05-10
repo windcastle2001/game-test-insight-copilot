@@ -89,6 +89,10 @@ function optionalMetricLines(data: GameTestData): string {
   return lines.length > 0 ? lines.join('\n') : '- 추가 지표 없음';
 }
 
+function rawMetricSummaryLines(data: GameTestData): string {
+  return data.rawMetricSummary?.length ? data.rawMetricSummary.map((line) => `- ${line}`).join('\n') : '- 커스텀 raw 지표 없음';
+}
+
 function settingsLines(settings: AnalysisSettings): string {
   return Object.entries(settings.thresholds)
     .map(([key, value]) => `- ${key}: good ${value.good}, watch ${value.watch}`)
@@ -191,6 +195,9 @@ function buildPrompt(
 
 선택 입력 지표:
 ${optionalMetricLines(data)}
+
+커스텀 raw 지표 요약:
+${rawMetricSummaryLines(data)}
 
 사용 중인 기준값:
 ${settingsLines(settings)}
