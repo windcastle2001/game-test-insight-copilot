@@ -25,6 +25,65 @@ export interface GeminiAnalysisResult {
   statusMessage: string;
 }
 
+const geminiAnalysisSchema = {
+  type: 'object',
+  properties: {
+    decision: { type: 'string', enum: ['scale', 'iterate', 'kill'] },
+    confidence: { type: 'integer' },
+    marketabilityScore: { type: 'integer' },
+    retentionScore: { type: 'integer' },
+    monetizationScore: { type: 'integer' },
+    korBottleneck: { type: 'string' },
+    korFocus: { type: 'string' },
+    decisionReasons: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    formulaSummary: { type: 'string' },
+    experimentPlan: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          priority: { type: 'integer' },
+          experiment: { type: 'string' },
+          experimentKor: { type: 'string' },
+          targetKpi: { type: 'string' },
+          expectedImpact: { type: 'string' },
+          expectedImpactKor: { type: 'string' },
+          owner: { type: 'string' },
+          ownerKor: { type: 'string' },
+        },
+        required: ['priority', 'experiment', 'experimentKor', 'targetKpi', 'expectedImpact', 'expectedImpactKor', 'owner', 'ownerKor'],
+      },
+    },
+    aiInsight: {
+      type: 'object',
+      properties: {
+        executiveSummaryKor: { type: 'string' },
+        whatIsWorkingKor: { type: 'string' },
+        keyRiskKor: { type: 'string' },
+        whyItMattersKor: { type: 'string' },
+        recommendedDirectionKor: { type: 'string' },
+      },
+      required: ['executiveSummaryKor', 'whatIsWorkingKor', 'keyRiskKor', 'whyItMattersKor', 'recommendedDirectionKor'],
+    },
+  },
+  required: [
+    'decision',
+    'confidence',
+    'marketabilityScore',
+    'retentionScore',
+    'monetizationScore',
+    'korBottleneck',
+    'korFocus',
+    'decisionReasons',
+    'formulaSummary',
+    'experimentPlan',
+    'aiInsight',
+  ],
+};
+
 export function isGeminiEnabled(): boolean {
   const key = import.meta.env.VITE_GEMINI_API_KEY;
   return Boolean(key && key !== 'your_gemini_api_key_here');
@@ -58,6 +117,7 @@ export async function generateGeminiAnalysis(
             temperature: 0.1,
             maxOutputTokens: 8192,
             responseMimeType: 'application/json',
+            responseJsonSchema: geminiAnalysisSchema,
           },
         }),
       }
@@ -231,7 +291,7 @@ ${settingsLines(settings)}
 ${trendSummary}
 ${customPrompt}
 
-반드시 아래 JSON 형식만 반환:
+반드시 API에 제공된 JSON schema와 같은 JSON 객체만 반환:
 마크다운 코드블록, 설명문, 앞뒤 문장 없이 JSON 객체만 반환하라.
 {
   "decision": "scale | iterate | kill",
