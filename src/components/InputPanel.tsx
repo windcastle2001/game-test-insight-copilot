@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import Papa from 'papaparse';
-import { Download, Plus, Settings, Trash2, Upload, X, Zap } from 'lucide-react';
+import { Download, Plus, Settings, Sparkles, Trash2, Upload, X, Zap } from 'lucide-react';
 import type { GameTestData, RawDataParseResult, TrendAnalysisResult } from '../types/gameTest';
 import { DEFAULT_RAW_COLUMNS, downloadCsv, generateRawDataTemplate, parseRawDataCsv, type RawMetricColumn } from '../utils/rawDataEngine';
 import { analyzeTrendData, generateTrendCsvTemplate, parseTrendCsvRows } from '../utils/trendEngine';
+import { SAMPLE_PRESETS, loadSamplePreset, type SamplePreset } from '../utils/sampleLoader';
 
 interface Props {
   data: GameTestData | null;
@@ -79,6 +80,8 @@ export default function InputPanel({ data, trendData, onChange, onTrendDataChang
   const [isMetricModalOpen, setIsMetricModalOpen] = useState(false);
   const [customKey, setCustomKey] = useState('');
   const [customLabel, setCustomLabel] = useState('');
+  const [loadingSampleId, setLoadingSampleId] = useState<string | null>(null);
+  const [sampleError, setSampleError] = useState('');
 
   useEffect(() => {
     setTrendResult(trendData);
@@ -132,6 +135,25 @@ export default function InputPanel({ data, trendData, onChange, onTrendDataChang
     setCustomLabel('');
   };
 
+  const handleLoadSample = async (preset: SamplePreset) => {
+    setSampleError('');
+    setLoadingSampleId(preset.id);
+    try {
+      const { metricsRows, trendsRows } = await loadSamplePreset(preset);
+      const nextRaw = parseRawDataCsv(metricsRows, columns);
+      const nextGame = buildGameData(nextRaw);
+      setRawResult(nextRaw);
+      onChange(nextGame);
+      const nextTrend = buildTrendData(trendsRows);
+      setTrendResult(nextTrend);
+      onTrendDataChange(nextTrend);
+    } catch (error) {
+      setSampleError(error instanceof Error ? error.message : '샘플 로드 중 오류가 발생했습니다.');
+    } finally {
+      setLoadingSampleId(null);
+    }
+  };
+
   const ready = Boolean(data && rawResult);
   const selectedColumnCount = columns.filter((column) => column.required || column.selected).length;
 
@@ -141,6 +163,38 @@ export default function InputPanel({ data, trendData, onChange, onTrendDataChang
         <p className="section-eyebrow">Data Upload</p>
         <h2>라이브 지표와 동향 데이터를 분리해서 업로드합니다</h2>
         <p>먼저 raw 지표 CSV로 KPI를 계산하고, 별도 동향 CSV로 리뷰/커뮤니티 반응을 묶은 뒤 Gemini 분석을 생성합니다.</p>
+      </div>
+
+      <div className="sample-presets">
+        <div className="sample-presets-head">
+          <div>
+            <p className="section-eyebrow">Quick Start</p>
+            <strong>샘플 게임 3종 즉시 체험</strong>
+            <p>CSV 준비 없이 바로 분석을 돌려보고 싶다면 샘플을 로드하세요. 지표 + 동향이 함께 채워집니다.</p>
+          </div>
+        </div>
+        <div className="sample-preset-grid">
+          {SAMPLE_PRESETS.map((preset) => {
+            const decisionLabel = preset.expectedDecision === 'scale' ? 'SCALE' : preset.expectedDecision === 'kill' ? 'KILL' : 'ITERATE';
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={`sample-preset-card decision-${preset.expectedDecision}`}
+                onClick={() => handleLoadSample(preset)}
+                disabled={loadingSampleId !== null}
+              >
+                <span className="sample-preset-tag">기대 결론 · {decisionLabel}</span>
+                <strong>{preset.label}</strong>
+                <span className="sample-preset-desc">{preset.description}</span>
+                <span className="sample-preset-cta">
+                  <Sparkles size={14} /> {loadingSampleId === preset.id ? '로드 중...' : '이 샘플로 시작'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {sampleError && <div className="warning-box"><p>{sampleError}</p></div>}
       </div>
 
       <div className="raw-card raw-only-card">

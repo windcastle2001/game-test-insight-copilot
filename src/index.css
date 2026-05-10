@@ -233,6 +233,26 @@ label { font-size: 12px; font-weight: 900; color: var(--gray-text); }
 .empty-panel.strong { margin: 22px 0; font-weight: 900; color: var(--black); }
 footer { border-top: 1px solid var(--border); background: var(--white); color: var(--gray-muted); text-align: center; padding: 22px; font-size: 12px; }
 
+.sample-presets { margin-bottom: 18px; padding: 18px; border: 1px solid var(--border); border-radius: 8px; background: linear-gradient(135deg, #fff7fb 0%, #fffbea 100%); }
+.sample-presets-head strong { display: block; color: var(--black); font-size: 18px; font-weight: 900; margin: 4px 0 6px; }
+.sample-presets-head p { margin: 0; color: var(--gray-muted); font-size: 13px; line-height: 1.5; }
+.sample-preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+.sample-preset-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); text-align: left; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.sample-preset-card:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--pink); box-shadow: 0 8px 18px rgba(255,31,168,0.18); }
+.sample-preset-card:disabled { opacity: 0.55; cursor: wait; }
+.sample-preset-card strong { color: var(--black); font-size: 15px; font-weight: 900; }
+.sample-preset-tag { font-size: 10px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; }
+.sample-preset-card.decision-scale .sample-preset-tag { background: #16a34a; color: #fff; }
+.sample-preset-card.decision-iterate .sample-preset-tag { background: #f59e0b; color: #000; }
+.sample-preset-card.decision-kill .sample-preset-tag { background: #e11d48; color: #fff; }
+.sample-preset-desc { color: var(--gray-muted); font-size: 12px; font-weight: 700; line-height: 1.5; }
+.sample-preset-cta { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 6px 10px; border-radius: 999px; background: var(--black); color: var(--white); font-size: 11px; font-weight: 900; }
+
+.pdf-action-bar { display: flex; align-items: center; gap: 14px; padding-top: 22px; padding-bottom: 4px; flex-wrap: wrap; }
+.pdf-action-bar .primary-button { background: var(--purple); padding: 12px 20px; }
+.pdf-action-bar .primary-button:disabled { opacity: 0.6; cursor: wait; }
+.pdf-action-hint { color: var(--gray-muted); font-size: 12px; font-weight: 800; }
+
 .loading-modal {
   width: min(480px, 100%);
   background: var(--white);
@@ -251,7 +271,7 @@ footer { border-top: 1px solid var(--border); background: var(--white); color: v
 
 @media (max-width: 860px) {
   .header-inner, .trend-upload, .raw-upload-main, .decision-card { align-items: flex-start; flex-direction: column; }
-  .form-card, .kpi-grid, .health-grid, .chart-grid, .score-grid, .threshold-grid, .preset-grid, .raw-summary-grid, .kpi-preview-grid, .metric-column-grid, .custom-metric-row { grid-template-columns: 1fr; }
+  .form-card, .kpi-grid, .health-grid, .chart-grid, .score-grid, .threshold-grid, .preset-grid, .raw-summary-grid, .kpi-preview-grid, .metric-column-grid, .custom-metric-row, .sample-preset-grid { grid-template-columns: 1fr; }
   .cluster-row { grid-template-columns: 1fr; }
   .confidence { text-align: left; }
 }

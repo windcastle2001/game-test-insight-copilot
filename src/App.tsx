@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { FileDown } from 'lucide-react';
 import Header from './components/Header';
 import InputPanel from './components/InputPanel';
 import DecisionSummary from './components/DecisionSummary';
@@ -11,6 +12,7 @@ import type { AnalysisResult, AnalysisSettings, GameTestData, TrendAnalysisResul
 import { DEFAULT_SETTINGS } from './types/gameTest';
 import { analyzeGame } from './utils/analysisEngine';
 import { generateGeminiTrendAnalysis } from './utils/aiEngine';
+import { exportElementToPdf } from './utils/pdfExport';
 import './index.css';
 
 export default function App() {
@@ -22,6 +24,22 @@ export default function App() {
   const [loadingStep, setLoadingStep] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadPdf = async () => {
+    if (!resultsRef.current || !result) return;
+    setIsExporting(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const safeName = (inputData?.gameName ?? 'game').replace(/[^a-zA-Z0-9가-힣_-]+/g, '_');
+      await exportElementToPdf(resultsRef.current, `GameTestInsight_${safeName}_${stamp}.pdf`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? `PDF 생성 실패: ${error.message}` : 'PDF 생성 중 알 수 없는 오류');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!inputData) return;
@@ -97,14 +115,22 @@ export default function App() {
         </div>
       )}
       {result ? (
-        <div id="results" className="results-stack">
-          <DecisionSummary result={result} />
-          <KpiHealthDashboard kpiCards={result.kpiCards} />
-          <ChartSection result={result} gameName={inputData?.gameName ?? '업로드 게임'} />
-          <AiInsightSection insight={result.aiInsight} />
-          <ExperimentPlan experiments={result.experimentPlan} />
-          <MeetingSummary summaryKor={result.meetingSummaryKor} summaryEng={result.meetingSummary} />
-        </div>
+        <>
+          <section className="page-shell pdf-action-bar">
+            <button className="primary-button" type="button" onClick={handleDownloadPdf} disabled={isExporting}>
+              <FileDown size={16} /> {isExporting ? 'PDF 생성 중...' : '분석 결과 PDF 다운로드'}
+            </button>
+            <span className="pdf-action-hint">회의/보고용으로 결과 전체를 PDF 한 파일로 저장합니다.</span>
+          </section>
+          <div id="results" ref={resultsRef} className="results-stack">
+            <DecisionSummary result={result} />
+            <KpiHealthDashboard kpiCards={result.kpiCards} />
+            <ChartSection result={result} gameName={inputData?.gameName ?? '업로드 게임'} />
+            <AiInsightSection insight={result.aiInsight} />
+            <ExperimentPlan experiments={result.experimentPlan} />
+            <MeetingSummary summaryKor={result.meetingSummaryKor} summaryEng={result.meetingSummary} />
+          </div>
+        </>
       ) : (
         <section className="page-shell">
           <div className="empty-panel strong">원본 지표 CSV를 업로드하면 분석 결과가 여기에 표시됩니다.</div>
