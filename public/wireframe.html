@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Game Test Insight Copilot — 화면 설계 (Wireframe)</title>
+<style>
+  :root {
+    --black: #000000;
+    --pink: #FF1FA8;
+    --yellow: #F5C300;
+    --purple: #5B2D8E;
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f5;
+    --gray-200: #e5e5e5;
+    --gray-300: #d4d4d4;
+    --gray-400: #a3a3a3;
+    --gray-500: #737373;
+    --gray-700: #404040;
+    --gray-900: #171717;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, sans-serif;
+    background: var(--gray-100);
+    color: var(--gray-900);
+    line-height: 1.55;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+
+  /* COVER */
+  .cover {
+    background: var(--black);
+    color: #fff;
+    padding: 56px 48px;
+    border-radius: 12px;
+    border-bottom: 6px solid var(--pink);
+    margin-bottom: 32px;
+  }
+  .cover .eyebrow {
+    color: var(--pink);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .cover h1 {
+    font-size: 38px;
+    font-weight: 900;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+  .cover .sub { color: #d4d4d4; font-size: 15px; font-weight: 700; }
+  .cover .meta {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    padding-top: 22px;
+    border-top: 1px solid #404040;
+  }
+  .cover .meta div span {
+    display: block;
+    color: var(--yellow);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .cover .meta div b { font-weight: 700; font-size: 13px; }
+
+  /* SECTION HEAD */
+  h2.section-title {
+    font-size: 22px;
+    font-weight: 900;
+    margin: 48px 0 8px;
+    color: var(--black);
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--black);
+  }
+  h2.section-title small {
+    display: block;
+    color: var(--pink);
+    font-size: 10px;
+    letter-spacing: 2px;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+  h3.sub-title {
+    font-size: 15px;
+    font-weight: 900;
+    margin: 28px 0 10px;
+    color: var(--gray-900);
+  }
+  p.section-desc {
+    color: var(--gray-700);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  /* INFORMATION ARCHITECTURE */
+  .ia-tree {
+    background: #fff;
+    border: 1px solid var(--gray-300);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 18px;
+  }
+  .ia-root {
+    display: inline-block;
+    background: var(--black);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 900;
+    margin-bottom: 18px;
+  }
+  .ia-children {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .ia-node {
+    border: 1.5px solid var(--gray-300);
+    border-radius: 8px;
+    padding: 14px;
+    background: var(--gray-50);
+  }
+  .ia-node b { display: block; font-size: 12px; color: var(--pink); font-weight: 900; margin-bottom: 6px; letter-spacing: 1.2px; text-transform: uppercase; }
+  .ia-node strong { display: block; font-size: 14px; color: var(--gray-900); margin-bottom: 6px; }
+  .ia-node ul { list-style: none; padding: 0; }
+  .ia-node ul li {
+    color: var(--gray-700);
+    font-size: 12px;
+    padding: 3px 0 3px 12px;
+    position: relative;
+  }
+  .ia-node ul li::before {
+    content: "›";
+    position: absolute; left: 0; color: var(--pink); font-weight: 900;
+  }
+
+  /* USER FLOW */
+  .flow {
+    background: #fff;
+    border: 1px solid var(--gray-300);
+    border-radius: 10px;
+    padding: 28px;
+  }
+  .flow-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 24px;
+  }
+  .flow-row:last-child { margin-bottom: 0; }
+  .flow-step-num {
+    width: 50px; height: 50px; border-radius: 12px;
+    background: var(--pink); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 18px;
+  }
+  .flow-step-num.purple { background: var(--purple); }
+  .flow-step-num.yellow { background: var(--yellow); color: var(--black); }
+  .flow-step-num.black { background: var(--black); }
+  .flow-step-body {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .flow-step-body strong { display: block; color: var(--gray-900); font-weight: 900; font-size: 14px; margin-bottom: 4px; }
+  .flow-step-body span { display: block; color: var(--gray-700); font-size: 12px; }
+  .flow-step-body .branch { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--gray-300); }
+  .flow-step-body .branch p { color: var(--gray-700); font-size: 12px; padding: 3px 0 3px 14px; position: relative; }
+  .flow-step-body .branch p::before { content: "→"; position: absolute; left: 0; color: var(--pink); font-weight: 900; }
+
+  /* WIREFRAME BLOCKS */
+  .wf {
+    background: #fff;
+    border: 1px solid var(--gray-300);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 24px;
+  }
+  .wf-frame {
+    background: var(--gray-50);
+    border: 2px dashed var(--gray-300);
+    border-radius: 8px;
+    padding: 18px;
+    position: relative;
+  }
+  .wf-label {
+    position: absolute;
+    top: -12px; left: 14px;
+    background: var(--black);
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+  }
+
+  /* Generic boxes used inside frames */
+  .box {
+    background: #fff;
+    border: 1.5px solid var(--gray-400);
+    border-radius: 6px;
+    padding: 14px;
+    color: var(--gray-700);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .box.dark { background: var(--black); color: #fff; border-color: var(--black); }
+  .box.pink { background: var(--pink); color: #fff; border-color: var(--pink); }
+  .box.yellow { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+  .box.purple { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .box.empty { background: var(--gray-100); border-style: dashed; text-align: center; color: var(--gray-500); }
+  .box .small { display: block; font-size: 11px; font-weight: 700; margin-top: 4px; opacity: 0.85; }
+  .box .placeholder { display: inline-block; height: 8px; width: 60%; background: var(--gray-300); border-radius: 4px; margin: 4px 0; }
+  .box .placeholder.short { width: 32%; }
+  .box .placeholder.long { width: 88%; }
+
+  /* Layout helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .row { display: flex; gap: 10px; align-items: stretch; }
+  .row > * { flex: 1; }
+
+  /* Annotations */
+  .annot {
+    margin-top: 14px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    background: var(--gray-50);
+    padding: 12px 14px;
+  }
+  .annot ol { padding-left: 22px; }
+  .annot li {
+    color: var(--gray-700);
+    font-size: 12px;
+    padding: 3px 0;
+  }
+  .annot li b { color: var(--gray-900); font-weight: 900; }
+
+  /* Mini badges */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .pill.scale { background: #16a34a; color: #fff; }
+  .pill.iterate { background: #f59e0b; color: #000; }
+  .pill.kill { background: #e11d48; color: #fff; }
+  .pill.good { background: #16a34a; color: #fff; }
+  .pill.watch { background: #f59e0b; color: #000; }
+  .pill.risk { background: #e11d48; color: #fff; }
+
+  /* Sample preset cards (in wireframe) */
+  .sample-card {
+    border: 1.5px solid var(--gray-400);
+    background: #fff;
+    border-radius: 8px;
+    padding: 14px;
+    text-align: left;
+  }
+  .sample-card strong { display: block; font-size: 13px; color: var(--gray-900); margin: 6px 0; font-weight: 900; }
+  .sample-card .desc { font-size: 11px; color: var(--gray-500); margin-bottom: 8px; }
+  .sample-card .cta { display: inline-block; padding: 4px 10px; background: var(--black); color: #fff; border-radius: 999px; font-size: 10px; font-weight: 900; }
+
+  /* Footer */
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gray-300);
+    color: var(--gray-500);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { padding: 20px; }
+    .cover, .ia-tree, .flow, .wf, .annot { box-shadow: none; }
+    h2.section-title { page-break-before: auto; }
+    .wf { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <p class="eyebrow">Wireframe · Screen Design</p>
+    <h1>Game Test Insight Copilot</h1>
+    <p class="sub">화면 설계 — 정보 구조 / 사용자 흐름 / 섹션별 와이어프레임</p>
+    <div class="meta">
+      <div><span>지원자</span><b>임광윤</b></div>
+      <div><span>지원 포지션</span><b>슈퍼센트 AI 프로덕트 기획자</b></div>
+      <div><span>작성일</span><b>2026-05-10</b></div>
+    </div>
+  </div>
+
+  <!-- 1. INFORMATION ARCHITECTURE -->
+  <h2 class="section-title"><small>01 · Information Architecture</small>정보 구조</h2>
+  <p class="section-desc">단일 페이지 SPA. 입력→분석→결과→보고 흐름을 수직 스크롤 구조로 단일 화면 안에 배치.</p>
+  <div class="ia-tree">
+    <div class="ia-root">📱 Game Test Insight Copilot (Single Page App)</div>
+    <div class="ia-children">
+      <div class="ia-node">
+        <b>① Header</b>
+        <strong>브랜딩 / 컨텍스트</strong>
+        <ul>
+          <li>슈퍼센트 로고</li>
+          <li>제품명 + 서브카피</li>
+          <li>"AI Product Prototype" 태그</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>② Input</b>
+        <strong>데이터 입력</strong>
+        <ul>
+          <li>샘플 게임 3종 카드</li>
+          <li>Raw 지표 CSV 업로드</li>
+          <li>동향 CSV 업로드</li>
+          <li>지표 컬럼 선택 모달</li>
+          <li>분석 시작 버튼</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>③ Loading</b>
+        <strong>분석 진행 모달</strong>
+        <ul>
+          <li>현재 단계 텍스트</li>
+          <li>프로그레스 바 (0~100%)</li>
+          <li>예상 안내 문구</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>④ Decision</b>
+        <strong>의사결정 결과</strong>
+        <ul>
+          <li>Scale / Iterate / Kill 카드</li>
+          <li>판단 근거 강도</li>
+          <li>핵심 병목 / 추천 포커스</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>⑤ Diagnostics</b>
+        <strong>진단 / 분석</strong>
+        <ul>
+          <li>KPI Health 대시보드</li>
+          <li>Retention Trend 차트</li>
+          <li>Marketability × Retention 매트릭스</li>
+          <li>AI Insight 5개 카드</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>⑥ Action / Report</b>
+        <strong>실행 계획 / 보고</strong>
+        <ul>
+          <li>실험 계획 우선순위 표</li>
+          <li>회의 요약 (한·영)</li>
+          <li>PDF 다운로드</li>
+          <li>요약 클립보드 복사</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. USER FLOW -->
+  <h2 class="section-title"><small>02 · User Flow</small>사용자 흐름</h2>
+  <p class="section-desc">평가자/실사용자가 도구에 진입한 시점부터 결과 보고서를 다운로드하기까지의 전 단계.</p>
+  <div class="flow">
+    <div class="flow-row">
+      <div class="flow-step-num yellow">1</div>
+      <div class="flow-step-body">
+        <strong>입장 & 컨텍스트 파악</strong>
+        <span>헤더와 입력 패널이 화면에 노출됨. 제품명·태그를 보고 "AI 의사결정 도구"임을 즉시 인식.</span>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step-num pink">2</div>
+      <div class="flow-step-body">
+        <strong>데이터 입력 — 3가지 옵션 중 선택</strong>
+        <div class="branch">
+          <p><b>옵션 A · Quick Start</b> — 샘플 게임 3종 카드 클릭 (SCALE / ITERATE / KILL) → 라이브 지표 + 동향 자동 채워짐</p>
+          <p><b>옵션 B · 직접 업로드</b> — raw 지표 CSV + 동향 CSV 각각 업로드. 필요 시 지표 컬럼 추가/삭제 후 빈 양식 다운로드 → 채워서 재업로드</p>
+          <p><b>옵션 C · 혼합</b> — 샘플로 시작 후 지표나 동향 데이터를 일부만 직접 교체</p>
+        </div>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step-num purple">3</div>
+      <div class="flow-step-body">
+        <strong>분석 시작</strong>
+        <span>"Gemini로 분석 생성" 버튼 클릭 → 진행 모달이 나타나고 프로그레스 바가 실시간 업데이트.</span>
+        <div class="branch">
+          <p>5% — Raw data 검산</p>
+          <p>15~65% — 동향 원문 청크별 Gemini 분석 (N/총개수)</p>
+          <p>68% — 동향 분석 결과 취합</p>
+          <p>72% — Gemini 최종 의사결정 생성</p>
+          <p>95% — 실행 계획 정리</p>
+          <p>100% — 결과 노출</p>
+        </div>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step-num black">4</div>
+      <div class="flow-step-body">
+        <strong>결과 확인</strong>
+        <span>결과 영역으로 자동 스크롤. Decision → KPI 진단 → 차트 → AI 인사이트 → 실험 계획 → 회의 요약 순으로 보고.</span>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step-num pink">5</div>
+      <div class="flow-step-body">
+        <strong>보고 자료 추출</strong>
+        <div class="branch">
+          <p><b>PDF 다운로드</b> — 보라색 버튼 클릭 → A4 다중 페이지 PDF로 결과 전체 저장</p>
+          <p><b>회의 요약 복사</b> — 한·영 요약문을 클립보드에 복사 후 슬랙/노션에 붙여넣기</p>
+          <p><b>재분석</b> — 지표나 동향을 수정하고 분석 버튼 재클릭하면 결과 갱신</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. WIREFRAMES -->
+  <h2 class="section-title"><small>03 · Layout Wireframes</small>섹션별 와이어프레임</h2>
+  <p class="section-desc">실제 페이지 구조와 1:1 대응되는 와이어프레임. 회색 박스는 정보 영역, 컬러 박스는 슈퍼센트 브랜드 컬러가 적용된 액션·결과 영역.</p>
+
+  <!-- A. Header -->
+  <h3 class="sub-title">A · Header / Hero</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION A</span>
+      <div class="box dark">
+        <span class="placeholder short" style="background:rgba(255,31,168,.6);"></span><br>
+        <span class="placeholder long"></span>
+        <span class="small">제품명 + 서브카피 + AI Product Prototype 태그</span>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>로고 영역</b> — 슈퍼센트 로고 (좌측)</li>
+        <li><b>아이브로우(Eyebrow)</b> — 핑크색 "AI PRODUCT PROTOTYPE" 라벨</li>
+        <li><b>타이틀</b> — "Game Test Insight Copilot" (Bold-First, 900 weight)</li>
+        <li><b>서브카피</b> — 한국어 한 줄 요약</li>
+        <li><b>하단 보더</b> — 슈퍼센트 핑크 5px 라인</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- B. Quick Start -->
+  <h3 class="sub-title">B · Quick Start (샘플 게임 3종)</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION B</span>
+      <div class="box" style="background:linear-gradient(135deg,#fff7fb,#fffbea);">
+        <strong style="color:var(--gray-900);font-size:14px;">샘플 게임 3종 즉시 체험</strong>
+        <span class="small" style="color:var(--gray-500);">CSV 준비 없이 바로 분석을 돌려보고 싶다면 샘플을 로드하세요.</span>
+        <div class="grid-3" style="margin-top:12px;">
+          <div class="sample-card">
+            <span class="pill iterate">기대 결론 · ITERATE</span>
+            <strong>머지 스낵 스프린트</strong>
+            <span class="desc">하이퍼캐주얼 · 7일 · 동향 300건</span>
+            <span class="cta">✦ 이 샘플로 시작</span>
+          </div>
+          <div class="sample-card">
+            <span class="pill scale">기대 결론 · SCALE</span>
+            <strong>아이들 아일랜드 셰프</strong>
+            <span class="desc">하이브리드 · 14일 · 동향 600건</span>
+            <span class="cta">✦ 이 샘플로 시작</span>
+          </div>
+          <div class="sample-card">
+            <span class="pill kill">기대 결론 · KILL</span>
+            <strong>러너 팩토리 러쉬</strong>
+            <span class="desc">하이퍼캐주얼 · 14일 · 동향 350건</span>
+            <span class="cta">✦ 이 샘플로 시작</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>그라데이션 배경</b> — 핑크/옐로우 옅은 그라데이션으로 입력 패널 다른 영역과 시각 구분</li>
+        <li><b>3개 카드 균등 분할</b> — 각 카드가 SCALE / ITERATE / KILL 케이스 1:1 매핑</li>
+        <li><b>Decision Pill</b> — 카드 상단에 기대 결론을 색상 라벨로 표시 (평가자가 클릭 전에 시나리오 인지)</li>
+        <li><b>호버 효과</b> — 카드 위로 떠오르고 그림자 + 핑크 보더</li>
+        <li><b>로드 중 표시</b> — 클릭 후 "로드 중..." 텍스트 표기, 다른 카드는 비활성화</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- C. Raw / Trend Upload -->
+  <h3 class="sub-title">C · Raw 지표 + 동향 CSV 업로드</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION C</span>
+      <div class="box">
+        <strong style="color:var(--gray-900);font-size:14px;">원본 라이브 지표 CSV</strong>
+        <span class="small" style="color:var(--gray-500);">선택된 N개 컬럼 기준으로 빈 CSV 다운로드 + 업로드 시 KPI 자동 계산</span>
+        <div class="row" style="margin-top:10px;">
+          <div class="box yellow" style="text-align:center;margin-bottom:0;">⚙ raw 지표 선택</div>
+          <div class="box dark" style="text-align:center;margin-bottom:0;">⬆ CSV 업로드</div>
+          <div class="box" style="text-align:center;margin-bottom:0;">⬇ 빈 양식</div>
+        </div>
+        <div class="grid-4" style="margin-top:12px;">
+          <div class="box empty">CPI</div>
+          <div class="box empty">CTR</div>
+          <div class="box empty">IPM</div>
+          <div class="box empty">D1/D3/D7</div>
+        </div>
+      </div>
+      <div class="box">
+        <strong style="color:var(--gray-900);font-size:14px;">동향 CSV</strong>
+        <span class="small" style="color:var(--gray-500);">필수 컬럼: date, source, title, content, category</span>
+        <div class="row" style="margin-top:10px;">
+          <div class="box dark" style="text-align:center;margin-bottom:0;">⬆ 동향 CSV 업로드</div>
+          <div class="box" style="text-align:center;margin-bottom:0;">⬇ 동향 빈 양식</div>
+        </div>
+        <div class="box empty" style="margin-top:10px;">업로드 후 클러스터/태그 미리보기</div>
+      </div>
+      <div class="box pink" style="text-align:center;font-size:15px;padding:18px;">⚡ Gemini로 분석 생성</div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>Raw 지표 카드</b> — 노란 "raw 지표 선택" 버튼으로 모달 → 19개 기본 컬럼 + 커스텀 컬럼 추가/삭제 → 빈 양식 CSV 다운로드 가능</li>
+        <li><b>업로드 결과</b> — KPI 8~16개 자동 계산되어 카드 형태로 미리보기</li>
+        <li><b>경고 박스</b> — 필수 컬럼 누락, 숫자 파싱 실패, 코호트 중복 시 노란 경고 박스 노출</li>
+        <li><b>동향 카드</b> — 업로드 시 클러스터/태그 빈도 미리보기 표시</li>
+        <li><b>분석 버튼</b> — 핑크 풀폭 버튼. 데이터 미입력 시 비활성화</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- D. Loading Modal -->
+  <h3 class="sub-title">D · 분석 진행 모달</h3>
+  <div class="wf">
+    <div class="wf-frame" style="background:rgba(0,0,0,0.7);padding:40px;">
+      <div style="background:#fff;border-radius:12px;padding:28px 24px;border-top:5px solid var(--pink);max-width:480px;margin:0 auto;">
+        <span style="color:var(--pink);font-size:10px;font-weight:900;letter-spacing:1.5px;">AI 분석 중</span>
+        <div style="font-size:18px;font-weight:900;color:var(--black);margin:6px 0 14px;">Gemini가 분석하고 있습니다</div>
+        <div style="font-size:13px;color:var(--gray-700);margin-bottom:14px;font-weight:800;">동향 원문 분석 중 (3/6청크)</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="flex:1;height:10px;background:var(--gray-100);border-radius:999px;">
+            <div style="width:55%;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple));border-radius:999px;"></div>
+          </div>
+          <span style="font-size:13px;font-weight:900;color:var(--pink);">55%</span>
+        </div>
+        <div style="font-size:11px;color:var(--gray-500);">동향 데이터가 많을수록 분석에 시간이 걸립니다.</div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>모달 백드롭</b> — 화면 어둡게(opacity 0.58), 외부 클릭 차단</li>
+        <li><b>핑크 상단 보더</b> — 슈퍼센트 브랜드 액센트로 모달 식별성 강화</li>
+        <li><b>현재 단계 텍스트</b> — 청크별 진행 상태 실시간 갱신 (`(N/총개수청크)`)</li>
+        <li><b>프로그레스 바</b> — 핑크→퍼플 그라데이션, 0.4초 ease 애니메이션</li>
+        <li><b>퍼센트 라벨</b> — 우측 정렬, 핑크 굵은 텍스트</li>
+        <li><b>안내 문구</b> — 분석에 시간이 걸린다는 안내로 사용자 불안 해소</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- E. Decision -->
+  <h3 class="sub-title">E · Decision Summary</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION E</span>
+      <div class="box" style="border:2px solid #16a34a;background:#ecfdf5;">
+        <div style="display:flex;justify-content:space-between;gap:18px;align-items:center;">
+          <div>
+            <span class="pill scale">DECISION</span>
+            <div style="font-size:34px;font-weight:900;color:var(--black);background:#16a34a;color:#fff;padding:4px 12px;border-radius:8px;display:inline-block;margin-top:6px;">SCALE</div>
+            <div style="margin-top:8px;font-size:13px;color:var(--gray-700);">핵심 병목 · 광고 후 스토어 이탈 / 추천 포커스 · 광고 → 스토어 정합성 강화</div>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-size:11px;font-weight:800;color:var(--gray-500);">판단 근거 강도</span>
+            <div style="font-size:36px;font-weight:900;color:#fff;background:#16a34a;padding:6px 12px;border-radius:8px;margin-top:4px;">82%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>색상 코딩</b> — Scale 초록 / Iterate 노랑 / Kill 빨강. 보더 + 배경 + 텍스트 모두 변화</li>
+        <li><b>Decision 라벨</b> — 38px 초굵게로 즉시 인식 가능</li>
+        <li><b>판단 근거 강도</b> — "결론 적중률"이 아니라 KPI+동향이 결론을 얼마나 일관되게 지지하는지의 지표 (오해 방지 위해 'Confidence' 대신 한국어 라벨)</li>
+        <li><b>핵심 병목 + 추천 포커스</b> — 한 줄로 다음 액션 방향 요약</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- F. KPI Health -->
+  <h3 class="sub-title">F · KPI Health Dashboard</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION F</span>
+      <div class="grid-4">
+        <div class="box" style="border-color:#16a34a;background:#ecfdf5;">
+          <span class="pill good">GOOD</span>
+          <div style="font-size:24px;font-weight:900;color:var(--black);margin:8px 0;">$0.42</div>
+          <span class="small">CPI / 설치 비용</span>
+        </div>
+        <div class="box" style="border-color:#f59e0b;background:#fffbeb;">
+          <span class="pill watch">WATCH</span>
+          <div style="font-size:24px;font-weight:900;color:var(--black);margin:8px 0;">2.1%</div>
+          <span class="small">CTR / 클릭률</span>
+        </div>
+        <div class="box" style="border-color:#e11d48;background:#fff1f2;">
+          <span class="pill risk">RISK</span>
+          <div style="font-size:24px;font-weight:900;color:var(--black);margin:8px 0;">12%</div>
+          <span class="small">D3 Retention</span>
+        </div>
+        <div class="box" style="border-color:#16a34a;background:#ecfdf5;">
+          <span class="pill good">GOOD</span>
+          <div style="font-size:24px;font-weight:900;color:var(--black);margin:8px 0;">$0.045</div>
+          <span class="small">ARPDAU</span>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>4컬럼 그리드</b> — 데스크톱 기준. 입력된 지표 수에 따라 행 자동 증가 (모바일은 1컬럼)</li>
+        <li><b>상태 배지</b> — Good/Watch/Risk을 색상 + 텍스트 함께 (색맹 대응)</li>
+        <li><b>입력 안된 선택 지표</b> — 카드 자체가 노출되지 않음 (D14/D30/ROAS 등)</li>
+        <li><b>해석 텍스트</b> — KPI 한국어 명칭 + 짧은 설명</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- G. Charts -->
+  <h3 class="sub-title">G · Charts (Retention Trend + Matrix)</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION G</span>
+      <div class="grid-2">
+        <div class="box">
+          <strong style="font-size:13px;color:var(--gray-900);">Retention Trend</strong>
+          <span class="small" style="color:var(--gray-500);">D1 / D3 / D7 라인 그래프</span>
+          <div class="box empty" style="height:140px;display:flex;align-items:center;justify-content:center;">📈 라인 차트 영역</div>
+        </div>
+        <div class="box">
+          <strong style="font-size:13px;color:var(--gray-900);">Marketability × Retention Matrix</strong>
+          <span class="small" style="color:var(--gray-500);">현재 게임 위치를 좌표로 표시</span>
+          <div class="box empty" style="height:140px;display:flex;align-items:center;justify-content:center;">🎯 산점도 영역</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- H. AI Insight -->
+  <h3 class="sub-title">H · AI Insight (5개 카드)</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION H</span>
+      <div class="box"><strong style="color:var(--gray-900);">📋 종합 요약 (Executive Summary)</strong><span class="small" style="color:var(--gray-500);">전체 결과를 PM이 30초 안에 파악할 수 있는 한 단락 요약</span></div>
+      <div class="grid-2">
+        <div class="box"><strong style="color:#16a34a;">✓ 작동하는 부분</strong><span class="small" style="color:var(--gray-500);">유지/확장할 강점</span></div>
+        <div class="box"><strong style="color:#e11d48;">⚠ 핵심 리스크</strong><span class="small" style="color:var(--gray-500);">즉시 해결할 병목</span></div>
+        <div class="box"><strong style="color:var(--purple);">💡 왜 중요한가</strong><span class="small" style="color:var(--gray-500);">의사결정에 미치는 영향</span></div>
+        <div class="box"><strong style="color:var(--pink);">→ 권장 방향</strong><span class="small" style="color:var(--gray-500);">다음 단계 가이드</span></div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>5개 섹션</b> — Executive Summary / What is working / Key Risk / Why it matters / Recommended Direction</li>
+        <li><b>모든 문구</b> — Gemini가 KPI + 동향 청크 분석 결과를 함께 보고 한국어로 작성한 자연어. "지표 A + 지표 B = 가설" 형태의 연결 가설을 강제</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- I. Experiment Plan -->
+  <h3 class="sub-title">I · Next Experiment Plan</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION I</span>
+      <div class="box" style="display:flex;align-items:center;gap:12px;">
+        <span class="box pink" style="margin:0;width:38px;height:38px;text-align:center;padding:8px;font-weight:900;">1</span>
+        <div>
+          <strong style="color:var(--gray-900);font-size:13px;">Day-3 미션 보상 + 진행도 시각화 추가</strong>
+          <span class="small" style="color:var(--gray-500);">목표 KPI: D3 Retention · 기대 효과: 첫 세션 후 복귀 동기 강화 · 담당: Game Designer</span>
+        </div>
+      </div>
+      <div class="box" style="display:flex;align-items:center;gap:12px;">
+        <span class="box purple" style="margin:0;width:38px;height:38px;text-align:center;padding:8px;font-weight:900;">2</span>
+        <div>
+          <strong style="color:var(--gray-900);font-size:13px;">초반 10분 광고 노출 타이밍 조정</strong>
+          <span class="small" style="color:var(--gray-500);">목표 KPI: 광고 시청 완료율 · 기대 효과: 초반 광고 피로 감소 · 담당: Monetization</span>
+        </div>
+      </div>
+      <div class="box" style="display:flex;align-items:center;gap:12px;">
+        <span class="box yellow" style="margin:0;width:38px;height:38px;text-align:center;padding:8px;font-weight:900;color:var(--black);">3</span>
+        <div>
+          <strong style="color:var(--gray-900);font-size:13px;">신규 플레이어블 광고 소재 3종 제작</strong>
+          <span class="small" style="color:var(--gray-500);">목표 KPI: CTR / IPM / CPI · 기대 효과: 크리에이티브-메시지 적합도 검증 · 담당: UA</span>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>우선순위 배지</b> — 좌측 컬러 원형(핑크/퍼플/옐로우) 안에 1·2·3 표시</li>
+        <li><b>각 행 구성</b> — 실험명 / 목표 KPI / 기대 효과 / 담당</li>
+        <li><b>실험 가설 연결</b> — Gemini가 decisionReasons에 명시한 "지표 A + 지표 B = 가설" 중 어느 것을 검증하는지가 expectedImpact에 드러남</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- J. Meeting Summary -->
+  <h3 class="sub-title">J · Meeting Summary (한·영)</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION J</span>
+      <div class="box">
+        <strong style="color:var(--gray-900);font-size:13px;">회의/보고용 요약 (한국어)</strong>
+        <span class="small" style="color:var(--gray-500);">슬랙 / 노션 / 이메일에 바로 붙여넣을 수 있는 문단</span>
+        <div class="box empty" style="margin-top:10px;height:90px;text-align:left;padding:14px;">[Game Test Summary]<br>아이들 아일랜드 셰프는 마케팅성 지표가 안정적이고 D3 잔존율도 양호합니다. 다만 초반 광고 노출이 잦아 D7 회복이 약합니다...</div>
+        <div class="box dark" style="display:inline-block;width:auto;padding:6px 14px;font-size:12px;margin-top:10px;">📋 Copy Summary</div>
+      </div>
+      <div class="box">
+        <strong style="color:var(--gray-900);font-size:13px;">English Version</strong>
+        <span class="small" style="color:var(--gray-500);">For global publishing communication</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- K. PDF Action -->
+  <h3 class="sub-title">K · PDF Export Action Bar</h3>
+  <div class="wf">
+    <div class="wf-frame">
+      <span class="wf-label">SECTION K (결과 영역 상단)</span>
+      <div class="row" style="align-items:center;">
+        <div class="box purple" style="text-align:center;flex:0 0 auto;padding:12px 22px;">📄 분석 결과 PDF 다운로드</div>
+        <div class="box empty" style="flex:1;text-align:left;border:none;background:transparent;color:var(--gray-500);font-size:12px;font-weight:700;">회의/보고용으로 결과 전체를 PDF 한 파일로 저장합니다.</div>
+      </div>
+    </div>
+    <div class="annot">
+      <ol>
+        <li><b>위치</b> — 결과 영역 가장 상단. 분석 직후 가장 먼저 보이는 액션</li>
+        <li><b>퍼플 버튼</b> — 핑크 분석 버튼과 시각적으로 구분 (분석 vs 보고 산출)</li>
+        <li><b>파일명 규칙</b> — `GameTestInsight_<게임명>_<날짜>.pdf`</li>
+        <li><b>구현</b> — html2canvas로 결과 영역을 캡처 → jsPDF로 A4 다중 페이지 분할</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- 4. RESPONSIVE -->
+  <h2 class="section-title"><small>04 · Responsive</small>반응형 가이드</h2>
+  <p class="section-desc">데스크톱 우선이지만 태블릿·모바일에서도 핵심 흐름이 깨지지 않게 설계.</p>
+  <div class="ia-tree">
+    <div class="ia-children" style="grid-template-columns:repeat(3,1fr);">
+      <div class="ia-node">
+        <b>≥ 1120px (Desktop)</b>
+        <strong>완전 그리드 레이아웃</strong>
+        <ul>
+          <li>샘플 카드 3컬럼</li>
+          <li>KPI 4컬럼</li>
+          <li>차트 2컬럼</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>860 ~ 1119px (Tablet)</b>
+        <strong>일부 그리드 축소</strong>
+        <ul>
+          <li>입력 패널 카드 1컬럼</li>
+          <li>KPI 2컬럼 유지</li>
+          <li>차트 1컬럼</li>
+        </ul>
+      </div>
+      <div class="ia-node">
+        <b>< 860px (Mobile)</b>
+        <strong>전체 1컬럼</strong>
+        <ul>
+          <li>모든 그리드 1컬럼</li>
+          <li>의사결정 카드 세로</li>
+          <li>차트 가로 스크롤</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. DESIGN TOKEN -->
+  <h2 class="section-title"><small>05 · Design Tokens</small>디자인 토큰</h2>
+  <p class="section-desc">슈퍼센트 브랜드 컬러 + 형태 토큰. 모든 컴포넌트가 이 토큰만 사용하도록 통일.</p>
+  <div class="ia-tree">
+    <div class="grid-4">
+      <div class="ia-node" style="background:var(--black);color:#fff;border:none;">
+        <b style="color:var(--pink);">SC-BLACK</b>
+        <strong style="color:#fff;">#000000</strong>
+        <span style="color:#a3a3a3;font-size:11px;">배경 / 본문 텍스트 / 강조</span>
+      </div>
+      <div class="ia-node" style="background:var(--pink);color:#fff;border:none;">
+        <b style="color:#fff;">SC-PINK</b>
+        <strong style="color:#fff;">#FF1FA8</strong>
+        <span style="color:#fff;font-size:11px;">주요 CTA / 액센트 / 분석 버튼</span>
+      </div>
+      <div class="ia-node" style="background:var(--yellow);border:none;">
+        <b style="color:var(--black);">SC-YELLOW</b>
+        <strong style="color:var(--black);">#F5C300</strong>
+        <span style="color:var(--gray-700);font-size:11px;">보조 액션 / 세팅</span>
+      </div>
+      <div class="ia-node" style="background:var(--purple);color:#fff;border:none;">
+        <b style="color:#fff;">SC-PURPLE</b>
+        <strong style="color:#fff;">#5B2D8E</strong>
+        <span style="color:#fff;font-size:11px;">PDF 보고 액션 / 차트 보조</span>
+      </div>
+    </div>
+    <h3 class="sub-title" style="margin-top:24px;">형태</h3>
+    <ul style="list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+      <li class="box"><b style="color:var(--pink);font-size:11px;">RADIUS — CARD</b><br><strong style="color:var(--gray-900);">8px</strong></li>
+      <li class="box"><b style="color:var(--pink);font-size:11px;">RADIUS — PILL</b><br><strong style="color:var(--gray-900);">999px</strong></li>
+      <li class="box"><b style="color:var(--pink);font-size:11px;">FONT WEIGHT — TITLE</b><br><strong style="color:var(--gray-900);">900 (Bold-First)</strong></li>
+    </ul>
+  </div>
+
+  <footer>
+    Game Test Insight Copilot · 화면 설계 와이어프레임<br>
+    임광윤 · 슈퍼센트 AI 프로덕트 기획자 과제 제출용 · 2026-05-10
+  </footer>
+
+</div>
+</body>
+</html>
