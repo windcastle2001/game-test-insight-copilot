@@ -54,7 +54,11 @@ export async function generateGeminiAnalysis(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: buildPrompt(data, settings, localContext, trendData) }] }],
-          generationConfig: { temperature: 0.25, maxOutputTokens: 2400 },
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json',
+          },
         }),
       }
     );
@@ -75,10 +79,14 @@ export async function generateGeminiAnalysis(
 function extractJson(text: string): string {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1]?.trim();
-  const candidate = fenced ?? trimmed;
+  const candidate = (fenced ?? trimmed)
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
   const start = candidate.indexOf('{');
   const end = candidate.lastIndexOf('}');
-  if (start < 0 || end < start) throw new Error(`Gemini 응답에서 JSON 객체를 찾지 못했습니다: ${trimmed.slice(0, 120)}`);
+  if (start < 0) throw new Error(`Gemini 응답에서 JSON 시작 부분을 찾지 못했습니다: ${trimmed.slice(0, 160)}`);
+  if (end < start) throw new Error(`Gemini 응답이 JSON 끝까지 오지 않고 중간에 끊겼습니다. 응답 앞부분: ${trimmed.slice(0, 160)}`);
   return candidate.slice(start, end + 1);
 }
 
@@ -224,6 +232,7 @@ ${trendSummary}
 ${customPrompt}
 
 반드시 아래 JSON 형식만 반환:
+마크다운 코드블록, 설명문, 앞뒤 문장 없이 JSON 객체만 반환하라.
 {
   "decision": "scale | iterate | kill",
   "confidence": 0,
