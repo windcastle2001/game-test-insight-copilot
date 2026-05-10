@@ -131,31 +131,30 @@ function sanitizeJsonText(text: string): string {
   return text.replace(/[\x00-\x1F\x7F]/g, '');
 }
 
-function escapeUnescapedQuotesInStrings(text: string): string {
-  // Last-resort heuristic: scan char-by-char and escape stray quotes that appear
-  // inside a string value (i.e. when followed by a non-structural char).
-  let out = '';
+function repairTruncatedJson(text: string): string {
+  // Walk through the JSON tracking string/structural state. When we run out of
+  // input, close any still-open brackets/braces in the reverse order they opened.
+  // Truncate any half-written element that hangs after the last complete value.
   let inString = false;
-  let prev = '';
+  let escape = false;
+  const stack: string[] = [];
+  let lastSafeEnd = 0;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '"' && prev !== '\\') {
-      if (inString) {
-        const next = text.slice(i + 1).replace(/^\s+/, '')[0];
-        if (next && !',:}]'.includes(next)) {
-          out += '\\"';
-          prev = '"';
-          continue;
-        }
-        inString = false;
-      } else {
-        inString = true;
-      }
-    }
-    out += ch;
-    prev = ch === '\\' && prev === '\\' ? '' : ch;
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; if (!inString && stack.length) lastSafeEnd = i + 1; continue; }
+    if (inString) continue;
+    if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') { stack.pop(); lastSafeEnd = i + 1; }
+    else if (ch === ',' || ch === ':') lastSafeEnd = i + 1;
+    else if (/[\d.\-+eEntrulfas]/.test(ch)) lastSafeEnd = i + 1;
   }
-  return out;
+
+  // Cut off any partial trailing token, then close open structures.
+  let result = text.slice(0, lastSafeEnd).replace(/[,:]\s*$/, '').replace(/,\s*([}\]])/g, '$1');
+  while (stack.length) result += stack.pop();
+  return result;
 }
 
 function tryParseJson(text: string): any {
@@ -164,10 +163,13 @@ function tryParseJson(text: string): any {
   try { return JSON.parse(sanitized); } catch {}
   const noTrailingCommas = sanitized.replace(/,\s*([}\]])/g, '$1');
   try { return JSON.parse(noTrailingCommas); } catch {}
-  return JSON.parse(escapeUnescapedQuotesInStrings(noTrailingCommas));
+  // Last-resort: response was likely truncated by maxOutputTokens. Repair by
+  // closing open structures so we recover whatever was emitted.
+  console.warn('[Gemini] JSON parse failed, attempting truncation repair');
+  return JSON.parse(repairTruncatedJson(noTrailingCommas));
 }
 
-async function callGeminiJson(prompt: string, schema: object, maxOutputTokens = 8192): Promise<any> {
+async function callGeminiJson(prompt: string, schema: object, maxOutputTokens = 32768): Promise<any> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
     {
@@ -363,7 +365,7 @@ export async function generateGeminiTrendAnalysis(
   if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 동향 원문 AI 분석을 실행할 수 없습니다.');
   const rows = trendData.sourceRows ?? [];
   if (rows.length === 0) return trendData;
-  const chunkSize = 100;
+  const chunkSize = 40;
   const totalChunks = Math.ceil(rows.length / chunkSize);
   const chunks: GeminiTrendChunkResponse[] = [];
   try {
@@ -372,7 +374,7 @@ export async function generateGeminiTrendAnalysis(
       const chunkRows = rows.slice(offset, offset + chunkSize);
       const percent = Math.round(15 + (chunkIndex / totalChunks) * 50);
       onProgress?.(`동향 원문 분석 중 (${chunkIndex + 1}/${totalChunks}청크)`, percent);
-      const response = await callGeminiJson(buildTrendChunkPrompt(chunkRows, offset, rows.length), geminiTrendChunkSchema, 8192);
+      const response = await callGeminiJson(buildTrendChunkPrompt(chunkRows, offset, rows.length), geminiTrendChunkSchema, 32768);
       chunks.push(normalizeTrendChunk(response, chunkRows, offset));
     }
     onProgress?.('동향 분석 결과 취합 중', 68);
@@ -400,7 +402,7 @@ export async function generateGeminiAnalysis(
 ): Promise<GeminiAnalysisResult> {
   if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 분석을 실행할 수 없습니다.');
   try {
-    const json = await callGeminiJson(buildPrompt(data, settings, localContext, trendData), geminiAnalysisSchema, 8192);
+    const json = await callGeminiJson(buildPrompt(data, settings, localContext, trendData), geminiAnalysisSchema, 32768);
     return { analysis: normalizeGeminiResponse(json), statusMessage: 'Gemini API가 KPI, raw data, AI 동향 원문 분석 결과를 사용해 최종 분석을 생성했습니다.' };
   } catch (error) {
     console.error('Gemini analysis generation failed', error);
