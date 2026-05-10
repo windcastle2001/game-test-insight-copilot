@@ -32,7 +32,7 @@ export default function DecisionSummary({ result }: Props) {
         </div>
         <div className="confidence">
           <strong>{result.confidence}%</strong>
-          <span>신뢰도</span>
+          <span>판단 근거 강도</span>
         </div>
       </div>
       <div className="score-grid">
@@ -50,6 +50,7 @@ export default function DecisionSummary({ result }: Props) {
       </div>
       <div className="reason-panel">
         <strong>AI 판단 근거</strong>
+        <p>판단 근거 강도는 결론의 적중 확률이 아니라, 업로드된 KPI와 동향 신호가 현재 결론을 얼마나 일관되게 지지하는지 보여주는 값입니다.</p>
         <p>{result.aiStatusMessage}</p>
         <p>{result.formulaSummary}</p>
         {result.decisionReasons.map((reason) => <span key={reason}>{reason}</span>)}

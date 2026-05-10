@@ -218,7 +218,7 @@ export function analyzeTrendData(
       top ? `가장 큰 유사 반응 묶음은 "${top.name}"이며 ${top.count}건입니다.` : '',
       riskCluster ? `"${riskCluster.name}" 묶음의 부정 비율이 ${riskCluster.sentimentRatio}%라서 우선 확인이 필요합니다.` : '',
       tagSummary[0] ? `가장 많이 붙은 이슈 태그는 "${tagSummary[0].tag}" (${tagSummary[0].count}건)입니다.` : '',
-      applyToAnalysis ? `동향 신호가 최종 신뢰도에 ${rawAdjustment > 0 ? '+' : ''}${rawAdjustment}%p 반영됩니다.` : '동향 신호는 화면에만 표시되고 최종 신뢰도에는 반영되지 않습니다.',
+      applyToAnalysis ? `동향 신호가 판단 근거 강도에 ${rawAdjustment > 0 ? '+' : ''}${rawAdjustment}%p 반영됩니다.` : '동향 신호는 화면에만 표시되고 판단 근거 강도에는 반영되지 않습니다.',
     ].filter(Boolean),
     overallSentiment,
     confidenceAdjustment: applyToAnalysis ? rawAdjustment : 0,

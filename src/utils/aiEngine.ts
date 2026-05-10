@@ -29,7 +29,7 @@ const geminiAnalysisSchema = {
   type: 'object',
   properties: {
     decision: { type: 'string', enum: ['scale', 'iterate', 'kill'] },
-    confidence: { type: 'integer' },
+    confidence: { type: 'integer', description: '결론 적중 확률이 아니라 업로드된 KPI와 동향 신호가 최종 결정을 얼마나 일관되게 지지하는지 나타내는 판단 근거 강도. 0~100 정수.' },
     marketabilityScore: { type: 'integer' },
     retentionScore: { type: 'integer' },
     monetizationScore: { type: 'integer' },
@@ -38,8 +38,9 @@ const geminiAnalysisSchema = {
     decisionReasons: {
       type: 'array',
       items: { type: 'string' },
+      description: '개별 지표 나열이 아니라 지표 2개 이상 또는 지표와 동향을 연결한 구체적 판단 근거.',
     },
-    formulaSummary: { type: 'string' },
+    formulaSummary: { type: 'string', description: '판단 근거 강도가 왜 그 수치인지 설명. 결론 적중률처럼 쓰지 말 것.' },
     experimentPlan: {
       type: 'array',
       items: {
@@ -207,7 +208,7 @@ function normalizeGeminiResponse(value: any): GeminiAnalysisResponse {
     korBottleneck: String(value?.korBottleneck ?? insight.keyRiskKor ?? 'Gemini 분석 결과 핵심 병목을 확인해야 합니다.'),
     korFocus: String(value?.korFocus ?? value?.recommendedFocus ?? '핵심 KPI 개선'),
     decisionReasons: asStringArray(value?.decisionReasons).slice(0, 6),
-    formulaSummary: String(value?.formulaSummary ?? 'Gemini가 KPI, 기준값, 동향 클러스터를 함께 검토해 결론을 도출했습니다.'),
+    formulaSummary: String(value?.formulaSummary ?? 'Gemini가 KPI 간 연결 신호와 동향 클러스터를 함께 검토해 결론을 도출했습니다.'),
     experimentPlan: Array.isArray(value?.experimentPlan) ? value.experimentPlan.slice(0, 5).map((item: any, index: number) => ({
       priority: Number(item?.priority) || index + 1,
       experiment: String(item?.experiment ?? item?.experimentKor ?? '개선 실험'),
@@ -255,9 +256,13 @@ function buildPrompt(
 
 중요:
 - 입력되지 않은 선택 지표는 판단 근거로 쓰지 마라.
-- 로컬 계산값은 참고용 검산 자료다. 최종 decision, confidence, decisionReasons, formulaSummary, experimentPlan, aiInsight는 네가 반환한 JSON을 앱이 우선 사용한다.
+- confidence는 결론이 맞을 확률이 아니다. 업로드된 KPI와 동향 신호가 최종 결정을 얼마나 일관되게 지지하는지 나타내는 "판단 근거 강도"다.
+- 로컬 계산값은 참고용 검산 자료다. 최종 decision, confidence(판단 근거 강도), decisionReasons, formulaSummary, experimentPlan, aiInsight는 네가 반환한 JSON을 앱이 우선 사용한다.
 - 단, 숫자와 기준값을 무시하고 감으로 판단하지 마라. 기준값 대비 어느 축이 약한지와 동향 클러스터가 그 판단을 강화/완화하는지 설명하라.
 - Scale은 확장 가능한 지표가 복수 축에서 확인될 때, Iterate는 개선 실험 후 재검증이 필요할 때, Kill은 유입/잔존/수익화/유저 반응이 구조적으로 약할 때만 선택하라.
+- 제너럴한 조언을 금지한다. decisionReasons와 aiInsight는 반드시 "지표 A + 지표 B = 원인 가설/실무 의미" 형태의 연결 가설을 포함하라.
+- 최소 3개의 연결 가설을 decisionReasons에 포함하라. 예: "Store CVR 14% + CPI $0.856 = 광고 클릭 이후 스토어 기대 불일치 가능성", "D0 Tutorial 58% + D1 22.5% = 온보딩 이해 실패가 첫날 이탈을 키울 가능성", "Ad Completion 52% + ARPDAU $0.0178 = 광고 수익화 구조가 유저 피로만 만들고 수익을 충분히 회수하지 못함".
+- experimentPlan은 각각 어떤 연결 가설을 검증하는 실험인지 targetKpi와 expectedImpactKor에 드러나야 한다.
 
 게임: ${data.gameName}
 장르: ${data.gameGenre}
@@ -281,7 +286,7 @@ ${rawMetricSummaryLines(data)}
 ${settingsLines(settings)}
 
 로컬 검산 참고:
-- 로컬 후보 결정: ${localContext.decision.toUpperCase()} / 신뢰도 ${localContext.confidence}%
+- 로컬 후보 결정: ${localContext.decision.toUpperCase()} / 판단 근거 강도 참고값 ${localContext.confidence}%
 - 시장성/리텐션/수익화 참고 점수: ${localContext.marketabilityScore}/${localContext.retentionScore}/${localContext.monetizationScore}
 - 로컬 판단 요약: ${localContext.formulaSummary}
 - 로컬 병목: ${localContext.korBottleneck}
@@ -301,8 +306,8 @@ ${customPrompt}
   "monetizationScore": 0,
   "korBottleneck": "...",
   "korFocus": "...",
-  "decisionReasons": ["...", "...", "..."],
-  "formulaSummary": "KPI와 동향을 종합한 판단 근거 요약",
+  "decisionReasons": ["지표 A + 지표 B = 원인 가설/실무 의미", "지표 C + 동향 태그 = 원인 가설/실무 의미", "지표 D + 지표 E = 원인 가설/실무 의미"],
+  "formulaSummary": "판단 근거 강도가 왜 이 정도인지 설명. 결론 적중 확률이라고 말하지 말 것.",
   "experimentPlan": [
     {
       "priority": 1,

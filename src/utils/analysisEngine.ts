@@ -66,7 +66,7 @@ function trendSummary(trendData?: TrendAnalysisResult | null): string {
   if (!trendData || trendData.totalCount === 0) return '동향 데이터 없음';
   const clusters = trendData.clusters.slice(0, 3).map((cluster) => `${cluster.name} ${cluster.count}건/부정 ${cluster.sentimentRatio}%`).join(', ');
   const tags = trendData.tagSummary.slice(0, 4).map((item) => `${item.tag} ${item.count}`).join(', ');
-  return `동향 ${trendData.totalCount}건, 주요 클러스터: ${clusters}. 주요 태그: ${tags}. 신뢰도 보정 ${trendData.confidenceAdjustment > 0 ? '+' : ''}${trendData.confidenceAdjustment}%p`;
+  return `동향 ${trendData.totalCount}건, 주요 클러스터: ${clusters}. 주요 태그: ${tags}. 판단 근거 강도 보정 ${trendData.confidenceAdjustment > 0 ? '+' : ''}${trendData.confidenceAdjustment}%p`;
 }
 
 function determineDecision(
@@ -85,7 +85,7 @@ function determineDecision(
   );
   const trendAdjust = trendData?.applyToAnalysis ? trendData.confidenceAdjustment : 0;
   const optionalUsed = kpiCards.filter((card) => kpiMeta[card.key]?.optional || card.key.startsWith('custom-')).map((card) => card.korName);
-  const formula = `시장성 ${marketability}점, 리텐션 ${retention}점, 수익화 ${monetization}점을 기준값과 비교했고 동향 신호는 신뢰도에 ${trendAdjust > 0 ? '+' : ''}${trendAdjust}%p 반영했습니다.`;
+  const formula = `시장성 ${marketability}점, 리텐션 ${retention}점, 수익화 ${monetization}점을 기준값과 비교했고 동향 신호는 판단 근거 강도에 ${trendAdjust > 0 ? '+' : ''}${trendAdjust}%p 반영했습니다.`;
 
   if (allRetentionRisk || (marketability < 40 && retention < 40)) {
     return {
@@ -191,7 +191,7 @@ function meetingSummary(data: GameTestData, result: Omit<AnalysisResult, 'meetin
   const kor = `[${data.gameName}] 소프트 론칭 테스트 결과 보고
 작성일: ${new Date().toLocaleDateString('ko-KR')}
 
-결론: ${decision} (신뢰도 ${result.confidence}%)
+결론: ${decision} (판단 근거 강도 ${result.confidence}%)
 
 핵심 지표
 - CPI $${data.cpi} / CTR ${data.ctr}% / IPM ${data.ipm}
@@ -211,7 +211,8 @@ ${result.korBottleneck}
 ${result.experimentPlan.slice(0, 3).map((item) => `${item.priority}. ${item.experimentKor} (${item.ownerKor}) - ${item.expectedImpactKor}`).join('\n')}`;
   const eng = `[${data.gameName}] Soft Launch Test Report
 Decision: ${decision} (Confidence ${result.confidence}%)
-Formula: ${result.formulaSummary}`;
+Evidence Strength: ${result.confidence}%
+Rationale: ${result.formulaSummary}`;
   return { kor, eng };
 }
 
