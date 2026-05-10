@@ -365,7 +365,7 @@ export async function generateGeminiTrendAnalysis(
   if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 동향 원문 AI 분석을 실행할 수 없습니다.');
   const rows = trendData.sourceRows ?? [];
   if (rows.length === 0) return trendData;
-  const chunkSize = 40;
+  const chunkSize = 100;
   const totalChunks = Math.ceil(rows.length / chunkSize);
   const chunks: GeminiTrendChunkResponse[] = [];
   try {
