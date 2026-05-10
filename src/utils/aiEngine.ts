@@ -1,4 +1,4 @@
-import type { AnalysisSettings, Decision, ExperimentItem, GameTestData, TrendAnalysisResult } from '../types/gameTest';
+import type { AnalysisSettings, Decision, ExperimentItem, GameTestData, TrendAnalysisResult, TrendDataRow } from '../types/gameTest';
 
 export interface GeminiAnalysisResponse {
   decision: Decision;
@@ -23,6 +23,14 @@ export interface GeminiAnalysisResponse {
 export interface GeminiAnalysisResult {
   analysis: GeminiAnalysisResponse | null;
   statusMessage: string;
+}
+
+interface GeminiTrendChunkResponse {
+  range: string;
+  count: number;
+  themes: TrendAnalysisResult['themes'];
+  topInsights: string[];
+  overallSentiment: 'positive' | 'negative' | 'neutral';
 }
 
 const geminiAnalysisSchema = {
@@ -85,9 +93,244 @@ const geminiAnalysisSchema = {
   ],
 };
 
+const geminiTrendChunkSchema = {
+  type: 'object',
+  properties: {
+    range: { type: 'string' },
+    count: { type: 'integer' },
+    themes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          tag: { type: 'string' },
+          count: { type: 'integer' },
+          negativeRatio: { type: 'integer' },
+          sources: { type: 'array', items: { type: 'string' } },
+          representativeTexts: { type: 'array', items: { type: 'string' } },
+          userRequests: { type: 'array', items: { type: 'string' } },
+          decisionImplication: { type: 'string' },
+        },
+        required: ['tag', 'count', 'negativeRatio', 'sources', 'representativeTexts', 'userRequests', 'decisionImplication'],
+      },
+    },
+    topInsights: { type: 'array', items: { type: 'string' } },
+    overallSentiment: { type: 'string', enum: ['positive', 'negative', 'neutral'] },
+  },
+  required: ['range', 'count', 'themes', 'topInsights', 'overallSentiment'],
+};
+
 export function isGeminiEnabled(): boolean {
   const key = import.meta.env.VITE_GEMINI_API_KEY;
   return Boolean(key && key !== 'your_gemini_api_key_here');
+}
+
+async function callGeminiJson(prompt: string, schema: object, maxOutputTokens = 8192): Promise<any> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens,
+          responseMimeType: 'application/json',
+          responseJsonSchema: schema,
+        },
+      }),
+    }
+  );
+  if (!response.ok) {
+    const message = await response.text().catch(() => '');
+    throw new Error(`Gemini 호출 실패: HTTP ${response.status}${message ? ` - ${message.slice(0, 240)}` : ''}`);
+  }
+  const payload = await response.json();
+  const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  return JSON.parse(extractJson(text));
+}
+
+function rowsToPromptLines(rows: TrendDataRow[], offset: number): string {
+  return rows
+    .map((row, index) => {
+      const title = row.title?.trim() || '제목 없음';
+      const content = row.content?.trim() || '내용 없음';
+      return `${offset + index + 1}. [${row.source || 'Unknown'} / ${row.category || 'uncategorized'} / ${row.date || '-'}] ${title} - ${content}`;
+    })
+    .join('\n');
+}
+
+function buildTrendChunkPrompt(rows: TrendDataRow[], offset: number, totalCount: number): string {
+  const from = offset + 1;
+  const to = offset + rows.length;
+  return `너는 게임 리뷰/VOC 분석가다. 아래 원문 동향 ${from}-${to}번을 직접 읽고, 유저가 실제로 말한 이슈를 중복 없이 묶어라.
+
+분석 규칙:
+- 각 원문 1건은 반드시 대표 테마 1개에만 배정한다. themes의 count 합계는 반드시 ${rows.length}가 되어야 한다.
+- 단순 키워드 매칭이 아니라 문맥으로 묶어라. 예: "광고가 많아서 흐름이 끊김"은 광고 피로, "설치하고 보니 광고랑 다름"은 스토어/광고소재.
+- 부정 비율은 해당 테마 안에서 불만/요청/문제 제기 문장의 비중이다. "좋겠어요", "줄여주세요", "아쉬워요"는 보통 개선 요청 또는 부정 신호다.
+- 대표 원문은 실제 원문에서 의미가 뚜렷한 문장만 짧게 골라라.
+- userRequests는 실무자가 바로 실험 항목으로 바꿀 수 있게 구체적으로 써라.
+- decisionImplication은 KPI 의사결정에 어떤 의미가 있는지 써라.
+
+전체 원문 수: ${totalCount}건
+이번 청크: ${from}-${to} (${rows.length}건)
+
+원문:
+${rowsToPromptLines(rows, offset)}
+
+JSON 객체만 반환하라.`;
+}
+
+function normalizeCount(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : fallback;
+}
+
+function normalizeRatio(value: unknown): number {
+  const parsed = normalizeCount(value, 0);
+  return Math.min(100, Math.max(0, parsed));
+}
+
+function normalizeTrendChunk(value: any, rows: TrendDataRow[], offset: number): GeminiTrendChunkResponse {
+  const range = `${offset + 1}-${offset + rows.length}`;
+  const rawThemes = Array.isArray(value?.themes) ? value.themes : [];
+  let themes = rawThemes
+    .map((theme: any) => ({
+      tag: String(theme?.tag ?? '기타').trim() || '기타',
+      count: normalizeCount(theme?.count),
+      negativeRatio: normalizeRatio(theme?.negativeRatio),
+      sources: Array.isArray(theme?.sources) ? theme.sources.map((source: unknown) => String(source)).filter(Boolean).slice(0, 4) : [],
+      representativeTexts: Array.isArray(theme?.representativeTexts) ? theme.representativeTexts.map((text: unknown) => String(text)).filter(Boolean).slice(0, 3) : [],
+      userRequests: Array.isArray(theme?.userRequests) ? theme.userRequests.map((text: unknown) => String(text)).filter(Boolean).slice(0, 3) : [],
+      decisionImplication: String(theme?.decisionImplication ?? '동향 원문 기반으로 추가 확인이 필요합니다.'),
+    }))
+    .filter((theme: TrendAnalysisResult['themes'][number]) => theme.count > 0);
+
+  const currentTotal = themes.reduce((sum: number, theme: TrendAnalysisResult['themes'][number]) => sum + theme.count, 0);
+  if (currentTotal > rows.length && currentTotal > 0) {
+    let remaining = rows.length;
+    themes = themes.map((theme: TrendAnalysisResult['themes'][number], index: number) => {
+      const count = index === themes.length - 1 ? remaining : Math.max(0, Math.round((theme.count / currentTotal) * rows.length));
+      remaining -= count;
+      return { ...theme, count };
+    }).filter((theme: TrendAnalysisResult['themes'][number]) => theme.count > 0);
+  }
+  const normalizedTotal = themes.reduce((sum: number, theme: TrendAnalysisResult['themes'][number]) => sum + theme.count, 0);
+  if (normalizedTotal < rows.length) {
+    themes.push({
+      tag: '기타',
+      count: rows.length - normalizedTotal,
+      negativeRatio: 0,
+      sources: [...new Set(rows.map((row) => row.source).filter(Boolean))].slice(0, 4),
+      representativeTexts: rows.slice(0, 2).map((row) => row.content || row.title).filter(Boolean),
+      userRequests: ['추가 원문 확인 후 세부 이슈를 분리해야 합니다.'],
+      decisionImplication: 'AI 청크 분석에서 명확히 분류되지 않은 잔여 동향입니다.',
+    });
+  }
+
+  return {
+    range,
+    count: rows.length,
+    themes,
+    topInsights: Array.isArray(value?.topInsights) ? value.topInsights.map((text: unknown) => String(text)).filter(Boolean).slice(0, 5) : [],
+    overallSentiment: value?.overallSentiment === 'positive' || value?.overallSentiment === 'negative' ? value.overallSentiment : 'neutral',
+  };
+}
+
+function mergeGeminiTrendChunks(base: TrendAnalysisResult, chunks: GeminiTrendChunkResponse[]): TrendAnalysisResult {
+  const themeMap = new Map<string, TrendAnalysisResult['themes'][number] & { negativeWeighted: number }>();
+  chunks.forEach((chunk) => {
+    chunk.themes.forEach((theme) => {
+      const previous = themeMap.get(theme.tag);
+      if (previous) {
+        previous.negativeWeighted += theme.negativeRatio * theme.count;
+        previous.count += theme.count;
+        previous.sources = [...new Set([...previous.sources, ...theme.sources])].slice(0, 5);
+        previous.representativeTexts = [...previous.representativeTexts, ...theme.representativeTexts].slice(0, 4);
+        previous.userRequests = [...new Set([...previous.userRequests, ...theme.userRequests])].slice(0, 3);
+        previous.decisionImplication = previous.decisionImplication || theme.decisionImplication;
+      } else {
+        themeMap.set(theme.tag, { ...theme, negativeWeighted: theme.negativeRatio * theme.count });
+      }
+    });
+  });
+
+  const themes = [...themeMap.values()]
+    .map(({ negativeWeighted, ...theme }) => ({
+      ...theme,
+      negativeRatio: Math.round(negativeWeighted / Math.max(theme.count, 1)),
+    }))
+    .sort((a, b) => b.count - a.count || b.negativeRatio - a.negativeRatio)
+    .slice(0, 10);
+  const tagSummary = themes.map((theme) => ({ tag: theme.tag, count: theme.count }));
+  const negativeWeighted = themes.reduce((sum, theme) => sum + theme.count * theme.negativeRatio, 0);
+  const totalCount = Math.max(base.totalCount, 1);
+  const negativeRatio = Math.round(negativeWeighted / totalCount);
+  const overallSentiment = negativeRatio >= 45 ? 'negative' : negativeRatio <= 18 ? 'positive' : 'neutral';
+  const confidenceAdjustment = overallSentiment === 'negative' ? -Math.round((negativeRatio / 100) * 15) : overallSentiment === 'positive' ? Math.round(((100 - negativeRatio) / 100) * 12) : 0;
+  const chunkSummaries = chunks.map((chunk) => ({
+    range: chunk.range,
+    count: chunk.count,
+    topTags: chunk.themes.slice(0, 3).map((theme) => `${theme.tag} ${theme.count}건`),
+    summary: chunk.topInsights[0] ?? `${chunk.range}번 원문을 Gemini가 직접 읽고 대표 테마를 분류했습니다.`,
+  }));
+  const topInsights = [
+    themes[0] ? `Gemini 원문 청크 분석 기준 가장 큰 테마는 "${themes[0].tag}" (${themes[0].count}건, 부정 ${themes[0].negativeRatio}%)입니다.` : '',
+    themes[1] ? `다음 반복 테마는 "${themes[1].tag}" (${themes[1].count}건)입니다.` : '',
+    chunks.flatMap((chunk) => chunk.topInsights).slice(0, 3).join(' '),
+    `동향 ${base.totalCount}건을 ${chunks.length}개 청크로 나눠 Gemini가 원문 기반으로 요약/취합했습니다.`,
+  ].filter(Boolean);
+  const clusters = themes.map((theme) => {
+    const negativeCount = Math.round((theme.count * theme.negativeRatio) / 100);
+    const positiveCount = theme.negativeRatio <= 20 ? Math.max(0, theme.count - negativeCount) : 0;
+    const neutralCount = Math.max(0, theme.count - negativeCount - positiveCount);
+    return {
+      name: theme.tag,
+      count: theme.count,
+      positiveCount,
+      negativeCount,
+      neutralCount,
+      sentiment: theme.negativeRatio >= 45 ? 'negative' as const : theme.negativeRatio <= 18 ? 'positive' as const : 'neutral' as const,
+      sentimentRatio: theme.negativeRatio,
+      tags: [theme.tag],
+      representativeTexts: theme.representativeTexts,
+      averageSimilarity: 100,
+    };
+  });
+
+  return {
+    ...base,
+    clusters,
+    themes,
+    chunkSummaries,
+    topInsights,
+    overallSentiment,
+    confidenceAdjustment,
+    tagSummary,
+    methodDescription: 'Gemini가 업로드된 동향 원문을 청크별로 직접 읽고, 각 원문을 대표 테마 1개에만 배정한 뒤 전체 테마/건의사항/의사결정 시사점으로 다시 취합했습니다.',
+  };
+}
+
+export async function generateGeminiTrendAnalysis(trendData: TrendAnalysisResult | null): Promise<TrendAnalysisResult | null> {
+  if (!trendData || trendData.totalCount === 0) return trendData;
+  if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 동향 원문 AI 분석을 실행할 수 없습니다.');
+  const rows = trendData.sourceRows ?? [];
+  if (rows.length === 0) return trendData;
+  const chunkSize = 100;
+  const chunks: GeminiTrendChunkResponse[] = [];
+  try {
+    for (let offset = 0; offset < rows.length; offset += chunkSize) {
+      const chunkRows = rows.slice(offset, offset + chunkSize);
+      const response = await callGeminiJson(buildTrendChunkPrompt(chunkRows, offset, rows.length), geminiTrendChunkSchema, 8192);
+      chunks.push(normalizeTrendChunk(response, chunkRows, offset));
+    }
+    return mergeGeminiTrendChunks(trendData, chunks);
+  } catch (error) {
+    console.error('Gemini trend analysis failed', error);
+    throw new Error(`Gemini 동향 원문 분석 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+  }
 }
 
 export async function generateGeminiAnalysis(
@@ -107,30 +350,8 @@ export async function generateGeminiAnalysis(
 ): Promise<GeminiAnalysisResult> {
   if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 분석을 실행할 수 없습니다.');
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: buildPrompt(data, settings, localContext, trendData) }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json',
-            responseJsonSchema: geminiAnalysisSchema,
-          },
-        }),
-      }
-    );
-    if (!response.ok) {
-      const message = await response.text().catch(() => '');
-      throw new Error(`Gemini 호출 실패: HTTP ${response.status}${message ? ` - ${message.slice(0, 240)}` : ''}`);
-    }
-    const payload = await response.json();
-    const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const json = extractJson(text);
-    return { analysis: normalizeGeminiResponse(JSON.parse(json)), statusMessage: 'Gemini API가 KPI, raw data, 동향을 사용해 최종 분석을 생성했습니다.' };
+    const json = await callGeminiJson(buildPrompt(data, settings, localContext, trendData), geminiAnalysisSchema, 8192);
+    return { analysis: normalizeGeminiResponse(json), statusMessage: 'Gemini API가 KPI, raw data, AI 동향 원문 분석 결과를 사용해 최종 분석을 생성했습니다.' };
   } catch (error) {
     console.error('Gemini analysis generation failed', error);
     throw new Error(`Gemini 응답 처리 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);

@@ -10,9 +10,10 @@ import MeetingSummary from './components/MeetingSummary';
 import type { AnalysisResult, AnalysisSettings, GameTestData, TrendAnalysisResult } from './types/gameTest';
 import { DEFAULT_SETTINGS } from './types/gameTest';
 import { analyzeGame } from './utils/analysisEngine';
+import { generateGeminiTrendAnalysis } from './utils/aiEngine';
 import './index.css';
 
-const loadingSteps = ['Raw data 검산 중', '동향 클러스터 반영 중', 'Gemini 분석 요청 중', '실행 계획 작성 중'];
+const loadingSteps = ['Raw data 검산 중', 'Gemini 동향 원문 청크 분석 중', 'Gemini 동향 취합 중', 'Gemini 최종 의사결정 생성 중', '실행 계획 작성 중'];
 
 export default function App() {
   const [inputData, setInputData] = useState<GameTestData | null>(null);
@@ -33,7 +34,9 @@ export default function App() {
         setLoadingStep(step);
         await new Promise((resolve) => window.setTimeout(resolve, 220));
       }
-      const next = await analyzeGame(inputData, settings, trendData);
+      const aiTrendData = await generateGeminiTrendAnalysis(trendData);
+      setTrendData(aiTrendData);
+      const next = await analyzeGame(inputData, settings, aiTrendData);
       setResult(next);
       window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 50);
     } catch (error) {
@@ -49,6 +52,7 @@ export default function App() {
       <Header />
       <InputPanel
         data={inputData}
+        trendData={trendData}
         onChange={setInputData}
         onTrendDataChange={setTrendData}
         onAnalyze={handleAnalyze}

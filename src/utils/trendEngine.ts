@@ -315,6 +315,7 @@ export function analyzeTrendData(
     return {
       totalCount: 0,
       dateRange: { from: '', to: '' },
+      sourceRows: [],
       clusters: [],
       themes: [],
       chunkSummaries: [],
@@ -383,6 +384,7 @@ export function analyzeTrendData(
   return {
     totalCount: rows.length,
     dateRange: { from: dates[0] ?? '', to: dates[dates.length - 1] ?? '' },
+    sourceRows: rows,
     clusters,
     themes,
     chunkSummaries,

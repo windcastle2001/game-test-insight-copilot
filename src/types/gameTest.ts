@@ -100,6 +100,7 @@ export interface TrendCluster {
 export interface TrendAnalysisResult {
   totalCount: number;
   dateRange: { from: string; to: string };
+  sourceRows?: TrendDataRow[];
   clusters: TrendCluster[];
   themes: Array<{
     tag: string;

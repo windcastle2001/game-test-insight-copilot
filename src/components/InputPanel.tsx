@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import Papa from 'papaparse';
 import { Download, Plus, Settings, Trash2, Upload, X, Zap } from 'lucide-react';
 import type { GameTestData, RawDataParseResult, TrendAnalysisResult } from '../types/gameTest';
@@ -7,6 +7,7 @@ import { analyzeTrendData, generateTrendCsvTemplate, parseTrendCsvRows } from '.
 
 interface Props {
   data: GameTestData | null;
+  trendData: TrendAnalysisResult | null;
   onChange: (data: GameTestData) => void;
   onTrendDataChange: (data: TrendAnalysisResult | null) => void;
   onAnalyze: () => void;
@@ -69,7 +70,7 @@ const previewMetrics: Array<{ key: keyof GameTestData; label: string; suffix: st
   { key: 'day1Playtime', label: '첫날 플레이', suffix: '분' },
 ];
 
-export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyze, isLoading, loadingStep }: Props) {
+export default function InputPanel({ data, trendData, onChange, onTrendDataChange, onAnalyze, isLoading, loadingStep }: Props) {
   const rawFileRef = useRef<HTMLInputElement>(null);
   const trendFileRef = useRef<HTMLInputElement>(null);
   const [rawResult, setRawResult] = useState<RawDataParseResult | null>(null);
@@ -78,6 +79,10 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
   const [isMetricModalOpen, setIsMetricModalOpen] = useState(false);
   const [customKey, setCustomKey] = useState('');
   const [customLabel, setCustomLabel] = useState('');
+
+  useEffect(() => {
+    setTrendResult(trendData);
+  }, [trendData]);
 
   const uploadRaw = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -199,6 +204,7 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
             <div className="tag-cloud">
               {trendResult.tagSummary.slice(0, 8).map((item) => <span key={item.tag}>{item.tag} {item.count}</span>)}
             </div>
+            <p className="method-note">{trendResult.methodDescription}</p>
             <div className="trend-theme-list">
               {trendResult.themes.slice(0, 5).map((theme) => (
                 <article className="trend-theme-card" key={theme.tag}>
