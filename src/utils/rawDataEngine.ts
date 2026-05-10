@@ -65,6 +65,7 @@ function normalizeRow(row: Record<string, string>): Record<string, string> {
 function validateRawRows(rows: Record<string, string>[]): string[] {
   const warnings: string[] = [];
   const required = ['date', 'campaign_name', 'impressions', 'clicks', 'installs', 'spend_usd', 'dau', 'new_users', 'revenue_usd', 'cohort_date', 'd1_active_users', 'd3_active_users', 'd7_active_users'];
+  const numericFields = ['impressions', 'clicks', 'installs', 'spend_usd', 'dau', 'new_users', 'revenue_usd', 'd1_active_users', 'd3_active_users', 'd7_active_users'];
   const optionalNumeric = ['d14_active_users', 'd30_active_users', 'tutorial_starts', 'tutorial_completes', 'first_session_users', 'first_session_exits', 'ad_starts', 'ad_completes', 'store_page_views', 'store_installs'];
   if (rows.length === 0) return ['원본 지표 CSV에 분석할 행이 없습니다.'];
   const headers = Object.keys(normalizeRow(rows[0]));
@@ -74,7 +75,7 @@ function validateRawRows(rows: Record<string, string>[]): string[] {
 
   const seenCohorts = new Set<string>();
   rows.map(normalizeRow).forEach((row, index) => {
-    [...required, ...optionalNumeric, 'ad_revenue_usd', 'iap_revenue_usd', 'avg_session_minutes'].forEach((field) => {
+    [...numericFields, ...optionalNumeric, 'ad_revenue_usd', 'iap_revenue_usd', 'avg_session_minutes'].forEach((field) => {
       if (row[field] !== undefined && row[field] !== '' && !Number.isFinite(Number.parseFloat(row[field]))) {
         warnings.push(`${index + 1}행: ${field} 숫자 파싱 실패 (${row[field]})`);
       }
