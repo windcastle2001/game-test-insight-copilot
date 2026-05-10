@@ -13,8 +13,6 @@ import { analyzeGame } from './utils/analysisEngine';
 import { generateGeminiTrendAnalysis } from './utils/aiEngine';
 import './index.css';
 
-const loadingSteps = ['Raw data 검산 중', 'Gemini 동향 원문 청크 분석 중', 'Gemini 동향 취합 중', 'Gemini 최종 의사결정 생성 중', '실행 계획 작성 중'];
-
 export default function App() {
   const [inputData, setInputData] = useState<GameTestData | null>(null);
   const [settings] = useState<AnalysisSettings>(DEFAULT_SETTINGS);
@@ -22,6 +20,7 @@ export default function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleAnalyze = async () => {
@@ -29,21 +28,28 @@ export default function App() {
     setIsLoading(true);
     setResult(null);
     setErrorMessage('');
+    setLoadingStep('Raw data 검산 중');
+    setLoadingProgress(5);
     try {
-      for (const step of loadingSteps) {
+      const aiTrendData = await generateGeminiTrendAnalysis(trendData, (step, percent) => {
         setLoadingStep(step);
-        await new Promise((resolve) => window.setTimeout(resolve, 220));
-      }
-      const aiTrendData = await generateGeminiTrendAnalysis(trendData);
+        setLoadingProgress(percent);
+      });
       setTrendData(aiTrendData);
+      setLoadingStep('Gemini 최종 의사결정 생성 중');
+      setLoadingProgress(72);
       const next = await analyzeGame(inputData, settings, aiTrendData);
+      setLoadingStep('실행 계획 정리 중');
+      setLoadingProgress(95);
       setResult(next);
+      setLoadingProgress(100);
       window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 50);
     } catch (error) {
       setResult(null);
       setErrorMessage(error instanceof Error ? error.message : 'Gemini 분석 중 알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
+      setLoadingProgress(0);
     }
   };
 
@@ -59,6 +65,22 @@ export default function App() {
         isLoading={isLoading}
         loadingStep={loadingStep}
       />
+      {isLoading && (
+        <div className="modal-backdrop">
+          <div className="loading-modal">
+            <p className="section-eyebrow">AI 분석 중</p>
+            <h2>Gemini가 분석하고 있습니다</h2>
+            <p className="loading-step-text">{loadingStep}</p>
+            <div className="progress-bar-wrapper">
+              <div className="progress-bar-track">
+                <div className="progress-bar-fill" style={{ width: `${loadingProgress}%` }} />
+              </div>
+              <span className="progress-percent">{loadingProgress}%</span>
+            </div>
+            <p className="loading-hint">동향 데이터가 많을수록 분석에 시간이 걸립니다. 잠시 기다려 주세요.</p>
+          </div>
+        </div>
+      )}
       {errorMessage && (
         <div className="modal-backdrop">
           <div className="error-modal">

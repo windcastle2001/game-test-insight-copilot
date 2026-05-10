@@ -233,6 +233,22 @@ label { font-size: 12px; font-weight: 900; color: var(--gray-text); }
 .empty-panel.strong { margin: 22px 0; font-weight: 900; color: var(--black); }
 footer { border-top: 1px solid var(--border); background: var(--white); color: var(--gray-muted); text-align: center; padding: 22px; font-size: 12px; }
 
+.loading-modal {
+  width: min(480px, 100%);
+  background: var(--white);
+  border-radius: 12px;
+  padding: 28px 24px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.38);
+  border-top: 5px solid var(--pink);
+}
+.loading-modal h2 { margin: 0 0 18px; color: var(--black); font-size: 22px; font-weight: 900; }
+.loading-step-text { margin: 0 0 14px; color: var(--gray-text); font-size: 14px; font-weight: 800; min-height: 22px; }
+.progress-bar-wrapper { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.progress-bar-track { flex: 1; height: 10px; background: var(--gray-bg); border-radius: 999px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--pink), var(--purple)); border-radius: 999px; transition: width 0.4s ease; }
+.progress-percent { flex: 0 0 38px; text-align: right; font-size: 13px; font-weight: 900; color: var(--pink); }
+.loading-hint { margin: 0; color: var(--gray-muted); font-size: 12px; line-height: 1.5; }
+
 @media (max-width: 860px) {
   .header-inner, .trend-upload, .raw-upload-main, .decision-card { align-items: flex-start; flex-direction: column; }
   .form-card, .kpi-grid, .health-grid, .chart-grid, .score-grid, .threshold-grid, .preset-grid, .raw-summary-grid, .kpi-preview-grid, .metric-column-grid, .custom-metric-row { grid-template-columns: 1fr; }

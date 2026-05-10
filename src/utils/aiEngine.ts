@@ -125,9 +125,21 @@ export function isGeminiEnabled(): boolean {
   return Boolean(key && key !== 'your_gemini_api_key_here');
 }
 
+function sanitizeJsonText(text: string): string {
+  // Strip control characters that break JSON parsing (keep \t \n \r which are valid)
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+function tryParseJson(text: string): any {
+  try { return JSON.parse(text); } catch {}
+  try { return JSON.parse(sanitizeJsonText(text)); } catch {}
+  const cleaned = sanitizeJsonText(text).replace(/,\s*([}\]])/g, '$1');
+  return JSON.parse(cleaned);
+}
+
 async function callGeminiJson(prompt: string, schema: object, maxOutputTokens = 8192): Promise<any> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,7 +160,7 @@ async function callGeminiJson(prompt: string, schema: object, maxOutputTokens = 
   }
   const payload = await response.json();
   const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  return JSON.parse(extractJson(text));
+  return tryParseJson(extractJson(text));
 }
 
 function rowsToPromptLines(rows: TrendDataRow[], offset: number): string {
@@ -313,19 +325,27 @@ function mergeGeminiTrendChunks(base: TrendAnalysisResult, chunks: GeminiTrendCh
   };
 }
 
-export async function generateGeminiTrendAnalysis(trendData: TrendAnalysisResult | null): Promise<TrendAnalysisResult | null> {
+export async function generateGeminiTrendAnalysis(
+  trendData: TrendAnalysisResult | null,
+  onProgress?: (step: string, percent: number) => void,
+): Promise<TrendAnalysisResult | null> {
   if (!trendData || trendData.totalCount === 0) return trendData;
   if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 동향 원문 AI 분석을 실행할 수 없습니다.');
   const rows = trendData.sourceRows ?? [];
   if (rows.length === 0) return trendData;
   const chunkSize = 100;
+  const totalChunks = Math.ceil(rows.length / chunkSize);
   const chunks: GeminiTrendChunkResponse[] = [];
   try {
-    for (let offset = 0; offset < rows.length; offset += chunkSize) {
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      const offset = chunkIndex * chunkSize;
       const chunkRows = rows.slice(offset, offset + chunkSize);
+      const percent = Math.round(15 + (chunkIndex / totalChunks) * 50);
+      onProgress?.(`동향 원문 분석 중 (${chunkIndex + 1}/${totalChunks}청크)`, percent);
       const response = await callGeminiJson(buildTrendChunkPrompt(chunkRows, offset, rows.length), geminiTrendChunkSchema, 8192);
       chunks.push(normalizeTrendChunk(response, chunkRows, offset));
     }
+    onProgress?.('동향 분석 결과 취합 중', 68);
     return mergeGeminiTrendChunks(trendData, chunks);
   } catch (error) {
     console.error('Gemini trend analysis failed', error);
