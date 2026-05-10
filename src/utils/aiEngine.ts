@@ -126,15 +126,45 @@ export function isGeminiEnabled(): boolean {
 }
 
 function sanitizeJsonText(text: string): string {
-  // Strip control characters that break JSON parsing (keep \t \n \r which are valid)
-  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  // Strip all control characters. JSON spec disallows raw \n \r \t inside strings
+  // (must be escaped as \\n etc), and whitespace between tokens is optional.
+  return text.replace(/[\x00-\x1F\x7F]/g, '');
+}
+
+function escapeUnescapedQuotesInStrings(text: string): string {
+  // Last-resort heuristic: scan char-by-char and escape stray quotes that appear
+  // inside a string value (i.e. when followed by a non-structural char).
+  let out = '';
+  let inString = false;
+  let prev = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"' && prev !== '\\') {
+      if (inString) {
+        const next = text.slice(i + 1).replace(/^\s+/, '')[0];
+        if (next && !',:}]'.includes(next)) {
+          out += '\\"';
+          prev = '"';
+          continue;
+        }
+        inString = false;
+      } else {
+        inString = true;
+      }
+    }
+    out += ch;
+    prev = ch === '\\' && prev === '\\' ? '' : ch;
+  }
+  return out;
 }
 
 function tryParseJson(text: string): any {
   try { return JSON.parse(text); } catch {}
-  try { return JSON.parse(sanitizeJsonText(text)); } catch {}
-  const cleaned = sanitizeJsonText(text).replace(/,\s*([}\]])/g, '$1');
-  return JSON.parse(cleaned);
+  const sanitized = sanitizeJsonText(text);
+  try { return JSON.parse(sanitized); } catch {}
+  const noTrailingCommas = sanitized.replace(/,\s*([}\]])/g, '$1');
+  try { return JSON.parse(noTrailingCommas); } catch {}
+  return JSON.parse(escapeUnescapedQuotesInStrings(noTrailingCommas));
 }
 
 async function callGeminiJson(prompt: string, schema: object, maxOutputTokens = 8192): Promise<any> {
