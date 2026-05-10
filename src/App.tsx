@@ -21,19 +21,27 @@ export default function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleAnalyze = async () => {
     if (!inputData) return;
     setIsLoading(true);
     setResult(null);
-    for (const step of loadingSteps) {
-      setLoadingStep(step);
-      await new Promise((resolve) => window.setTimeout(resolve, 220));
+    setErrorMessage('');
+    try {
+      for (const step of loadingSteps) {
+        setLoadingStep(step);
+        await new Promise((resolve) => window.setTimeout(resolve, 220));
+      }
+      const next = await analyzeGame(inputData, settings, trendData);
+      setResult(next);
+      window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch (error) {
+      setResult(null);
+      setErrorMessage(error instanceof Error ? error.message : 'Gemini 분석 중 알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
     }
-    const next = await analyzeGame(inputData, settings, trendData);
-    setResult(next);
-    setIsLoading(false);
-    window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
   return (
@@ -47,6 +55,21 @@ export default function App() {
         isLoading={isLoading}
         loadingStep={loadingStep}
       />
+      {errorMessage && (
+        <div className="modal-backdrop">
+          <div className="error-modal">
+            <div className="modal-head">
+              <div>
+                <p className="section-eyebrow">Gemini Error</p>
+                <h2>AI 분석을 생성하지 못했습니다</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setErrorMessage('')}>×</button>
+            </div>
+            <p>{errorMessage}</p>
+            <button className="primary-button" type="button" onClick={() => setErrorMessage('')}>확인</button>
+          </div>
+        </div>
+      )}
       {result ? (
         <div id="results" className="results-stack">
           <DecisionSummary result={result} />

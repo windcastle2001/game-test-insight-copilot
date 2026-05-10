@@ -101,6 +101,8 @@ function parseGenre(value: string): GameGenre | undefined {
 
 export function parseRawDataCsv(rows: Record<string, string>[], selectedColumns: RawMetricColumn[] = DEFAULT_RAW_COLUMNS): RawDataParseResult {
   const warnings = validateRawRows(rows);
+  const headers = new Set(Object.keys(normalizeRow(rows[0] ?? {})));
+  const has = (...fields: string[]) => fields.every((field) => headers.has(field));
   const parsed: RawDataRow[] = rows.map(normalizeRow).map((row) => ({
     game_name: row.game_name ?? '',
     game_genre: row.game_genre ?? '',
@@ -145,16 +147,15 @@ export function parseRawDataCsv(rows: Record<string, string>[], selectedColumns:
   const playtimeRows = day1Rows.length > 0 ? day1Rows : parsed;
   const avgPlaytime = playtimeRows.reduce((total, row) => total + row.avg_session_minutes, 0) / Math.max(playtimeRows.length, 1);
 
-  const optional: Partial<GameTestData> = {
-    d0TutorialCompletion: maybePercent(sum('tutorial_completes'), sum('tutorial_starts')),
-    firstSessionDropoff: maybePercent(sum('first_session_exits'), sum('first_session_users')),
-    adWatchCompletion: maybePercent(sum('ad_completes'), sum('ad_starts')),
-    storeConversion: maybePercent(sum('store_installs'), sum('store_page_views')),
-    d14Retention: maybePercent(sum('d14_active_users'), newUsers),
-    d30Retention: maybePercent(sum('d30_active_users'), newUsers),
-    roas: maybePercent(revenue, spend),
-    ltv: maybeMoney(revenue, newUsers),
-  };
+  const optional: Partial<GameTestData> = {};
+  if (has('tutorial_completes', 'tutorial_starts')) optional.d0TutorialCompletion = maybePercent(sum('tutorial_completes'), sum('tutorial_starts'));
+  if (has('first_session_exits', 'first_session_users')) optional.firstSessionDropoff = maybePercent(sum('first_session_exits'), sum('first_session_users'));
+  if (has('ad_completes', 'ad_starts')) optional.adWatchCompletion = maybePercent(sum('ad_completes'), sum('ad_starts'));
+  if (has('store_installs', 'store_page_views')) optional.storeConversion = maybePercent(sum('store_installs'), sum('store_page_views'));
+  if (has('d14_active_users')) optional.d14Retention = maybePercent(sum('d14_active_users'), newUsers);
+  if (has('d30_active_users')) optional.d30Retention = maybePercent(sum('d30_active_users'), newUsers);
+  if (has('revenue_usd', 'spend_usd')) optional.roas = maybePercent(revenue, spend);
+  if (has('revenue_usd', 'new_users')) optional.ltv = maybeMoney(revenue, newUsers);
   Object.keys(optional).forEach((key) => {
     if (optional[key as keyof GameTestData] === undefined) delete optional[key as keyof GameTestData];
   });

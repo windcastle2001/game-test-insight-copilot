@@ -82,6 +82,8 @@ label { font-size: 12px; font-weight: 900; color: var(--gray-text); }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.58); }
 .settings-modal { width: min(920px, 100%); max-height: min(88vh, 900px); overflow: auto; background: var(--white); border-radius: 8px; padding: 22px; box-shadow: 0 20px 70px rgba(0,0,0,.32); }
+.error-modal { width: min(560px, 100%); background: var(--white); border-radius: 8px; padding: 22px; border: 3px solid #e11d48; box-shadow: 0 20px 70px rgba(0,0,0,.32); }
+.error-modal p { margin: 0 0 16px; color: #881337; line-height: 1.6; white-space: pre-wrap; }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 3px solid var(--black); padding-bottom: 14px; margin-bottom: 18px; }
 .modal-head h2 { margin: 0; color: var(--black); font-size: 26px; font-weight: 900; }
 .icon-button { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 999px; background: var(--black); color: var(--white); }

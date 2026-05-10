@@ -174,25 +174,7 @@ export interface RawDataParseResult {
 }
 
 export interface KpiCard {
-  key: keyof Pick<
-    GameTestData,
-    | 'cpi'
-    | 'ctr'
-    | 'ipm'
-    | 'd1Retention'
-    | 'd3Retention'
-    | 'd7Retention'
-    | 'arpdau'
-    | 'day1Playtime'
-    | 'd0TutorialCompletion'
-    | 'firstSessionDropoff'
-    | 'adWatchCompletion'
-    | 'storeConversion'
-    | 'd14Retention'
-    | 'd30Retention'
-    | 'roas'
-    | 'ltv'
-  >;
+  key: string;
   name: string;
   korName: string;
   value: number;

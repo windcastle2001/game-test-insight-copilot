@@ -45,7 +45,7 @@ export async function generateGeminiAnalysis(
   },
   trendData?: TrendAnalysisResult | null
 ): Promise<GeminiAnalysisResult> {
-  if (!isGeminiEnabled()) return { analysis: null, statusMessage: 'Gemini API 키가 설정되지 않아 로컬 분석으로 대체했습니다.' };
+  if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 분석을 실행할 수 없습니다.');
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
@@ -60,16 +60,26 @@ export async function generateGeminiAnalysis(
     );
     if (!response.ok) {
       const message = await response.text().catch(() => '');
-      return { analysis: null, statusMessage: `Gemini 호출 실패: HTTP ${response.status}${message ? ` - ${message.slice(0, 160)}` : ''}` };
+      throw new Error(`Gemini 호출 실패: HTTP ${response.status}${message ? ` - ${message.slice(0, 240)}` : ''}`);
     }
     const payload = await response.json();
     const text = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const json = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)?.[1] ?? text;
-    return { analysis: normalizeGeminiResponse(JSON.parse(json.trim())), statusMessage: 'Gemini API가 KPI, raw data, 동향을 사용해 최종 분석을 생성했습니다.' };
+    const json = extractJson(text);
+    return { analysis: normalizeGeminiResponse(JSON.parse(json)), statusMessage: 'Gemini API가 KPI, raw data, 동향을 사용해 최종 분석을 생성했습니다.' };
   } catch (error) {
     console.error('Gemini analysis generation failed', error);
-    return { analysis: null, statusMessage: `Gemini 응답 처리 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}` };
+    throw new Error(`Gemini 응답 처리 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
   }
+}
+
+function extractJson(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1]?.trim();
+  const candidate = fenced ?? trimmed;
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if (start < 0 || end < start) throw new Error(`Gemini 응답에서 JSON 객체를 찾지 못했습니다: ${trimmed.slice(0, 120)}`);
+  return candidate.slice(start, end + 1);
 }
 
 function optionalMetricLines(data: GameTestData): string {

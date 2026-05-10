@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS } from '../types/gameTest';
 import { calcMarketabilityScore, calcMonetizationScore, calcRetentionScore, calcWeightedScore, getKpiStatus, hasMetric } from './scoring';
 import { generateGeminiAnalysis, isGeminiEnabled } from './aiEngine';
 
-const kpiMeta: Record<KpiCard['key'], { name: string; korName: string; unit: string; optional?: boolean }> = {
+const kpiMeta: Record<string, { name: string; korName: string; unit: string; optional?: boolean }> = {
   cpi: { name: 'CPI', korName: '설치 비용', unit: '$' },
   ctr: { name: 'CTR', korName: '클릭률', unit: '%' },
   ipm: { name: 'IPM', korName: '천 회 노출당 설치', unit: '' },
@@ -22,25 +22,44 @@ const kpiMeta: Record<KpiCard['key'], { name: string; korName: string; unit: str
   ltv: { name: 'LTV', korName: '유저당 생애가치', unit: '$', optional: true },
 };
 
-const metricKeys = Object.keys(kpiMeta) as KpiCard['key'][];
+const metricKeys = Object.keys(kpiMeta) as Array<keyof GameTestData>;
+
+function customMetricCards(data: GameTestData): KpiCard[] {
+  return (data.rawMetricSummary ?? []).map((summary, index) => {
+    const label = summary.split(':')[0] || `커스텀 지표 ${index + 1}`;
+    const value = Number(summary.match(/평균\s*([0-9.]+)/)?.[1] ?? 0);
+    return {
+      key: `custom-${index}`,
+      name: label,
+      korName: label,
+      value,
+      unit: '',
+      status: 'watch',
+      interpretation: summary,
+      korInterpretation: `Gemini 분석 참고 지표: ${summary}`,
+    };
+  });
+}
 
 function buildKpiCards(data: GameTestData, settings: AnalysisSettings): KpiCard[] {
-  return metricKeys
+  const standardCards = metricKeys
     .map((key) => [key, data[key]] as const)
-    .filter(([key, value]) => !kpiMeta[key].optional || hasMetric(value))
+    .filter(([key, value]) => !kpiMeta[String(key)].optional || hasMetric(value as number | undefined))
     .map(([key, value]) => {
       const numeric = value as number;
-      const status = getKpiStatus(key, numeric, settings);
+      const meta = kpiMeta[String(key)];
+      const status = getKpiStatus(String(key), numeric, settings);
       const label = status === 'good' ? '양호' : status === 'watch' ? '주의' : '위험';
       return {
-        key,
-        ...kpiMeta[key],
+        key: String(key),
+        ...meta,
         value: numeric,
         status,
-        interpretation: `${label}: ${kpiMeta[key].korName} 기준으로 판정했습니다.`,
-        korInterpretation: `${label}: ${kpiMeta[key].korName} 기준으로 판정했습니다.`,
+        interpretation: `${label}: ${meta.korName} 기준으로 판정했습니다.`,
+        korInterpretation: `${label}: ${meta.korName} 기준으로 판정했습니다.`,
       };
     });
+  return [...standardCards, ...customMetricCards(data)];
 }
 
 function trendSummary(trendData?: TrendAnalysisResult | null): string {
@@ -65,7 +84,7 @@ function determineDecision(
     (key) => getKpiStatus(key, data[key as keyof GameTestData] as number, settings) === 'risk'
   );
   const trendAdjust = trendData?.applyToAnalysis ? trendData.confidenceAdjustment : 0;
-  const optionalUsed = kpiCards.filter((card) => kpiMeta[card.key].optional).map((card) => card.korName);
+  const optionalUsed = kpiCards.filter((card) => kpiMeta[card.key]?.optional || card.key.startsWith('custom-')).map((card) => card.korName);
   const formula = `시장성 ${marketability}점, 리텐션 ${retention}점, 수익화 ${monetization}점을 기준값과 비교했고 동향 신호는 신뢰도에 ${trendAdjust > 0 ? '+' : ''}${trendAdjust}%p 반영했습니다.`;
 
   if (allRetentionRisk || (marketability < 40 && retention < 40)) {
@@ -219,52 +238,43 @@ export async function analyzeGame(
   let finalExperimentPlan = experimentPlan;
   let decisionReasons = decisionResult.reasons;
   let formulaSummary = decisionResult.formula;
-  let aiProvider: AnalysisResult['aiProvider'] = 'local-fallback';
-  let aiStatusMessage = isGeminiEnabled()
-    ? 'Gemini 응답을 기다리는 동안 로컬 분석을 준비했습니다.'
-    : 'Gemini API 키가 설정되지 않아 로컬 분석으로 대체했습니다.';
-
-  if (isGeminiEnabled()) {
-    const geminiResult = await generateGeminiAnalysis(
-      data,
-      settings,
-      {
-        decision: decisionResult.decision,
-        confidence: decisionResult.confidence,
-        marketabilityScore,
-        retentionScore,
-        monetizationScore,
-        decisionReasons: decisionResult.reasons,
-        formulaSummary: decisionResult.formula,
-        korBottleneck,
-      },
-      trendData
-    );
-    aiStatusMessage = geminiResult.statusMessage;
-    const gemini = geminiResult.analysis;
-    if (gemini) {
-      aiProvider = 'gemini';
-      decision = gemini.decision;
-      confidence = gemini.confidence;
-      mainBottleneck = gemini.korBottleneck;
-      recommendedFocus = gemini.korFocus;
-      finalMarketabilityScore = gemini.marketabilityScore ?? marketabilityScore;
-      finalRetentionScore = gemini.retentionScore ?? retentionScore;
-      finalMonetizationScore = gemini.monetizationScore ?? monetizationScore;
-      finalExperimentPlan = gemini.experimentPlan.length > 0 ? gemini.experimentPlan : buildExperiments(data, gemini.decision, trendData);
-      decisionReasons = gemini.decisionReasons.length > 0 ? gemini.decisionReasons : decisionResult.reasons;
-      formulaSummary = gemini.formulaSummary;
-      aiInsight = {
-        ...aiInsight,
-        ...gemini.aiInsight,
-        executiveSummary: `${data.gameName} is classified as ${gemini.decision.toUpperCase()} by Gemini using KPI, benchmark, and trend signals.`,
-        whatIsWorking: gemini.aiInsight.whatIsWorkingKor,
-        keyRisk: gemini.aiInsight.keyRiskKor,
-        whyItMatters: gemini.aiInsight.whyItMattersKor,
-        recommendedDirection: gemini.aiInsight.recommendedDirectionKor,
-      };
-    }
-  }
+  if (!isGeminiEnabled()) throw new Error('Gemini API 키가 설정되지 않았습니다. 분석을 실행할 수 없습니다.');
+  const geminiResult = await generateGeminiAnalysis(
+    data,
+    settings,
+    {
+      decision: decisionResult.decision,
+      confidence: decisionResult.confidence,
+      marketabilityScore,
+      retentionScore,
+      monetizationScore,
+      decisionReasons: decisionResult.reasons,
+      formulaSummary: decisionResult.formula,
+      korBottleneck,
+    },
+    trendData
+  );
+  const gemini = geminiResult.analysis;
+  if (!gemini) throw new Error(geminiResult.statusMessage);
+  decision = gemini.decision;
+  confidence = gemini.confidence;
+  mainBottleneck = gemini.korBottleneck;
+  recommendedFocus = gemini.korFocus;
+  finalMarketabilityScore = gemini.marketabilityScore ?? marketabilityScore;
+  finalRetentionScore = gemini.retentionScore ?? retentionScore;
+  finalMonetizationScore = gemini.monetizationScore ?? monetizationScore;
+  finalExperimentPlan = gemini.experimentPlan.length > 0 ? gemini.experimentPlan : buildExperiments(data, gemini.decision, trendData);
+  decisionReasons = gemini.decisionReasons.length > 0 ? gemini.decisionReasons : decisionResult.reasons;
+  formulaSummary = gemini.formulaSummary;
+  aiInsight = {
+    ...aiInsight,
+    ...gemini.aiInsight,
+    executiveSummary: `${data.gameName} is classified as ${gemini.decision.toUpperCase()} by Gemini using KPI, benchmark, and trend signals.`,
+    whatIsWorking: gemini.aiInsight.whatIsWorkingKor,
+    keyRisk: gemini.aiInsight.keyRiskKor,
+    whyItMatters: gemini.aiInsight.whyItMattersKor,
+    recommendedDirection: gemini.aiInsight.recommendedDirectionKor,
+  };
 
   const partial = {
     decision,
@@ -281,8 +291,8 @@ export async function analyzeGame(
     experimentPlan: finalExperimentPlan,
     decisionReasons,
     formulaSummary,
-    aiProvider,
-    aiStatusMessage,
+    aiProvider: 'gemini' as const,
+    aiStatusMessage: geminiResult.statusMessage,
   };
   const summary = meetingSummary(data, partial);
   return { ...partial, meetingSummary: summary.eng, meetingSummaryKor: summary.kor };
