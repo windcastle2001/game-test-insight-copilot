@@ -207,6 +207,9 @@ export default function InputPanel({ data, onChange, onTrendDataChange, onAnalyz
                     <span>{theme.count}건 · 부정 {theme.negativeRatio}% · {theme.sources.join(', ')}</span>
                   </div>
                   <p>{theme.decisionImplication}</p>
+                  <ul className="trend-examples">
+                    {theme.representativeTexts.slice(0, 2).map((text) => <li key={text}>{text}</li>)}
+                  </ul>
                   <small>{theme.userRequests.join(' ')}</small>
                 </article>
               ))}

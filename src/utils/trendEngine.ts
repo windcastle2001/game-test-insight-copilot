@@ -1,20 +1,86 @@
 import type { TrendAnalysisResult, TrendCluster, TrendDataRow } from '../types/gameTest';
 
 const TAG_KEYWORDS: Record<string, string[]> = {
-  '광고 피로': ['광고', 'ad', 'ads', '강제광고', '보상형', 'rewarded'],
-  '결제 압박': ['결제', '과금', '상점', '패키지', 'iap', '현질', '가격'],
-  '튜토리얼/온보딩': ['튜토리얼', 'tutorial', '설명', '가이드', '처음', '초반', 'onboarding'],
-  '난이도': ['어렵', '난이도', '보스', '실패', '막힘', 'hard', 'level', 'stage'],
-  '반복/지루함': ['지루', '반복', '똑같', '노가다', 'boring', 'repeat'],
-  '재미/몰입': ['재밌', '재미', '중독', '몰입', 'fun', 'addictive', '좋'],
-  '버그/성능': ['버그', '튕김', '멈춤', 'crash', 'lag', '렉', '발열'],
-  '스토어/광고소재': ['스크린샷', '스토어', '광고랑', '영상', 'creative', 'store'],
-  '커뮤니티 반응': ['카페', '디스코드', '공식', '댓글', 'community', 'discord'],
+  '광고 피로': ['광고', 'ad', 'ads', '강제광고', '보상형', 'rewarded', '광고가', '광고를', '광고만'],
+  '결제 압박': ['결제', '과금', '상점', '패키지', 'iap', '현질', '가격', '비싸', '구매'],
+  '튜토리얼/온보딩': ['튜토리얼', 'tutorial', '설명', '가이드', '처음', '초반', 'onboarding', '헷갈', '뭘 해야'],
+  '난이도': ['어렵', '난이도', '보스', '실패', '막힘', '막혀', 'hard', 'level', 'stage'],
+  '반복/지루함': ['지루', '반복', '똑같', '노가다', 'boring', 'repeat', '할 게', '콘텐츠'],
+  '재미/몰입': ['재밌', '재미', '중독', '몰입', '손맛', 'fun', 'addictive', '계속 하게'],
+  '버그/성능': ['버그', '튕김', '튕겨', '멈춤', '멈춥', 'crash', 'lag', '렉', '발열', '로딩'],
+  '스토어/광고소재': ['스크린샷', '스토어', '광고랑', '영상', 'creative', 'store', '설치하고 보니'],
+  '커뮤니티 반응': ['카페', '디스코드', '공식', '댓글', 'community', 'discord', '공지', '운영자'],
 };
 
-const POSITIVE = ['재밌', '좋', '중독', '귀엽', '만족', '추천', 'fun', 'love', 'great', 'good', 'addictive'];
-const NEGATIVE = ['별로', '최악', '짜증', '불편', '지루', '어렵', '튕김', '버그', 'bad', 'boring', 'crash', 'annoying'];
-const STOPWORDS = new Set(['the', 'and', 'for', 'with', 'this', 'that', '너무', '진짜', '그냥', '좀', '근데', '하다', '있는', '같음']);
+const POSITIVE = [
+  '재밌',
+  '재미있',
+  '중독',
+  '귀엽',
+  '만족',
+  '추천',
+  '손맛',
+  '괜찮',
+  '시원',
+  '계속 하게',
+  '마음에',
+  'fun',
+  'love',
+  'great',
+  'good',
+  'addictive',
+];
+
+const NEGATIVE = [
+  '별로',
+  '최악',
+  '짜증',
+  '불편',
+  '지루',
+  '어렵',
+  '튕김',
+  '튕겨',
+  '버그',
+  '끊',
+  '강제',
+  '줄였으면',
+  '헷갈',
+  '모르겠',
+  '막혀',
+  '실패',
+  '답답',
+  '아쉬',
+  '발열',
+  '멈춤',
+  '멈춥',
+  '불안',
+  '부담',
+  '반복',
+  '다르',
+  '실망',
+  '피로',
+  '낮',
+  '느려',
+  '오래 하면',
+  'bad',
+  'boring',
+  'crash',
+  'annoying',
+];
+
+const STOPWORDS = new Set(['the', 'and', 'for', 'with', 'this', 'that', '너무', '진짜', '그냥', '좀', '근데', '하는', '있는', '같음']);
+const PRIMARY_TAG_PRIORITY = [
+  '버그/성능',
+  '튜토리얼/온보딩',
+  '광고 피로',
+  '스토어/광고소재',
+  '난이도',
+  '반복/지루함',
+  '결제 압박',
+  '커뮤니티 반응',
+  '재미/몰입',
+  '기타',
+];
 
 function normalize(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -33,10 +99,11 @@ function hasWord(text: string, word: string): boolean {
 }
 
 function detectSentiment(text: string): TrendCluster['sentiment'] {
-  const pos = POSITIVE.filter((word) => hasWord(text, word)).length;
-  const neg = NEGATIVE.filter((word) => hasWord(text, word)).length;
+  const normalized = normalize(text);
+  const pos = POSITIVE.filter((word) => hasWord(normalized, word)).length;
+  const neg = NEGATIVE.filter((word) => hasWord(normalized, word)).length;
+  if (neg > 0 && neg >= pos) return 'negative';
   if (pos > neg) return 'positive';
-  if (neg > pos) return 'negative';
   return 'neutral';
 }
 
@@ -45,6 +112,12 @@ function detectTags(text: string): string[] {
     .filter(([, words]) => words.some((word) => hasWord(text, word)))
     .map(([tag]) => tag);
   return tags.length > 0 ? tags : ['기타'];
+}
+
+function selectPrimaryTag(tags: string[], sentiment: TrendCluster['sentiment']): string {
+  const unique = [...new Set(tags)];
+  if (sentiment === 'positive' && unique.includes('재미/몰입') && unique.length <= 2) return '재미/몰입';
+  return PRIMARY_TAG_PRIORITY.find((tag) => unique.includes(tag)) ?? unique[0] ?? '기타';
 }
 
 function vectorize(text: string): Map<string, number> {
@@ -86,13 +159,16 @@ function topTerms(vectors: Map<string, number>[], fallbackTags: string[]): strin
 function clusterRows(rows: TrendDataRow[]) {
   const items = rows.map((row, index) => {
     const text = `${row.source} ${row.title} ${row.content} ${row.category}`;
+    const sentiment = detectSentiment(text);
+    const tags = detectTags(text);
     return {
       index,
       row,
       text,
       vector: vectorize(text),
-      sentiment: detectSentiment(text),
-      tags: detectTags(text),
+      sentiment,
+      tags,
+      primaryTag: selectPrimaryTag(tags, sentiment),
     };
   });
 
@@ -150,9 +226,9 @@ function sourceLabel(source: string): string {
 function requestForTag(tag: string): string {
   const requests: Record<string, string> = {
     '광고 피로': '강제 광고 빈도와 노출 타이밍을 줄이고, 보상형 광고의 선택권과 보상 가치를 재조정해야 합니다.',
-    '결제 압박': '초반 패키지 팝업을 늦추고, 결제 제안보다 플레이 목표와 보상 이해를 먼저 제공해야 합니다.',
-    '튜토리얼/온보딩': '첫 세션 목표, 조작 설명, 핵심 재미 도달 시간을 줄여 온보딩 이탈을 낮춰야 합니다.',
-    '난이도': '막히는 스테이지의 난이도 상승 폭과 실패 후 재도전 보상을 조정해야 합니다.',
+    '결제 압박': '초반 패키지 팝업을 낮추고, 결제 제안보다 플레이 목표와 보상 이해를 먼저 제공해야 합니다.',
+    '튜토리얼/온보딩': '첫 세션 목표, 조작 설명, 핵심 재미 전달 시간을 줄여 온보딩 이탈을 낮춰야 합니다.',
+    '난이도': '막히는 스테이지의 난이도 상승폭과 실패 시 보상 체감을 조정해야 합니다.',
     '반복/지루함': '반복 체감이 오기 전에 새 기믹, 목표, 보상 루프를 더 빨리 열어야 합니다.',
     '재미/몰입': '긍정적으로 언급된 손맛, 캐릭터, 짧은 플레이 장점을 소재와 초반 경험에 더 전면 배치해야 합니다.',
     '버그/성능': '광고 복귀, 발열, 멈춤 등 안정성 이슈를 UA 확대 전 우선 수정해야 합니다.',
@@ -170,22 +246,28 @@ function implicationForTag(tag: string, count: number, negativeRatio: number): s
     '튜토리얼/온보딩': `${base} D0/D1 리텐션이 낮다면 첫 경험 이해 실패가 핵심 병목일 가능성이 큽니다.`,
     '난이도': `${base} D3/D7 하락과 함께 보이면 중기 잔존 개선 실험의 우선순위가 높습니다.`,
     '스토어/광고소재': `${base} CPI 또는 Store CVR이 나쁘다면 소재-스토어-실제 플레이 기대 불일치를 의심해야 합니다.`,
-    '버그/성능': `${base} 안정성 이슈는 KPI 해석을 왜곡할 수 있어 UA 확대 전 차단 조건입니다.`,
+    '버그/성능': `${base} 안정성 이슈는 KPI 해석을 흐릴 수 있어 UA 확대 전 차단 조건입니다.`,
     '반복/지루함': `${base} 플레이타임과 D3 이후 잔존이 낮다면 코어 루프 반복감이 이탈 원인일 수 있습니다.`,
-    '재미/몰입': `${base} 긍정 신호로 남길 수 있지만 다른 부정 클러스터를 상쇄할 만큼 큰지 확인해야 합니다.`,
+    '재미/몰입': `${base} 긍정 신호로 쓸 수 있지만 다른 부정 테마를 상쇄할 만큼 유지 지표 확인이 필요합니다.`,
     '결제 압박': `${base} 초반 결제 노출이 리텐션과 리뷰 감성에 부담을 주는지 검증해야 합니다.`,
-    '커뮤니티 반응': `${base} 반복 요청은 정성 VOC 기반의 다음 빌드 우선순위로 다뤄야 합니다.`,
+    '커뮤니티 반응': `${base} 반복 요청은 정성 VOC 기반의 다음 빌드 우선순위로 묶어야 합니다.`,
   };
-  return implications[tag] ?? `${base} 정량 KPI와 연결해 원인 가설로 검증해야 합니다.`;
+  return implications[tag] ?? `${base} 정량 KPI와 연결할 원인 가설로 검증해야 합니다.`;
+}
+
+function buildTaggedRows(rows: TrendDataRow[]) {
+  return rows.map((row) => {
+    const text = `${row.source} ${row.title} ${row.content} ${row.category}`;
+    const sentiment = detectSentiment(text);
+    const tags = detectTags(text);
+    return { row, text, tags, sentiment, primaryTag: selectPrimaryTag(tags, sentiment) };
+  });
 }
 
 function buildTrendThemes(rows: TrendDataRow[]) {
-  const taggedRows = rows.map((row) => {
-    const text = `${row.source} ${row.title} ${row.content} ${row.category}`;
-    return { row, text, tags: detectTags(text), sentiment: detectSentiment(text) };
-  });
+  const taggedRows = buildTaggedRows(rows);
   const tagMap = new Map<string, typeof taggedRows>();
-  taggedRows.forEach((item) => item.tags.forEach((tag) => tagMap.set(tag, [...(tagMap.get(tag) ?? []), item])));
+  taggedRows.forEach((item) => tagMap.set(item.primaryTag, [...(tagMap.get(item.primaryTag) ?? []), item]));
   return [...tagMap.entries()]
     .map(([tag, items]) => {
       const negativeCount = items.filter((item) => item.sentiment === 'negative').length;
@@ -207,9 +289,9 @@ function buildTrendThemes(rows: TrendDataRow[]) {
 function buildChunkSummaries(rows: TrendDataRow[], chunkSize = 100) {
   const summaries = [];
   for (let start = 0; start < rows.length; start += chunkSize) {
-    const chunk = rows.slice(start, start + chunkSize);
+    const chunk = buildTaggedRows(rows.slice(start, start + chunkSize));
     const tagCounts = new Map<string, number>();
-    chunk.forEach((row) => detectTags(`${row.source} ${row.title} ${row.content} ${row.category}`).forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)));
+    chunk.forEach((row) => tagCounts.set(row.primaryTag, (tagCounts.get(row.primaryTag) ?? 0) + 1));
     const topTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([tag, count]) => `${tag} ${count}건`);
     const from = start + 1;
     const to = start + chunk.length;
@@ -217,7 +299,7 @@ function buildChunkSummaries(rows: TrendDataRow[], chunkSize = 100) {
       range: `${from}-${to}`,
       count: chunk.length,
       topTags,
-      summary: `${from}-${to}번 동향에서는 ${topTags.join(', ') || '주요 태그 없음'}이 많이 반복됩니다.`,
+      summary: `${from}-${to}번 동향에서는 ${topTags.join(', ') || '주요 태그 없음'}이 대표 테마로 집계됩니다.`,
     });
   }
   return summaries;
@@ -252,14 +334,14 @@ export function analyzeTrendData(
   const chunkSummaries = buildChunkSummaries(rows);
   const dates = rows.map((row) => row.date).filter(Boolean).sort();
   const tagCounts = new Map<string, number>();
-  rawClusters.forEach((cluster) => cluster.items.forEach((item) => item.tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1))));
+  rawClusters.forEach((cluster) => cluster.items.forEach((item) => tagCounts.set(item.primaryTag, (tagCounts.get(item.primaryTag) ?? 0) + 1)));
 
   const clusters: TrendCluster[] = rawClusters
     .map((cluster, index) => {
       const positiveCount = cluster.items.filter((item) => item.sentiment === 'positive').length;
       const negativeCount = cluster.items.filter((item) => item.sentiment === 'negative').length;
       const neutralCount = cluster.items.length - positiveCount - negativeCount;
-      const tags = [...new Set(cluster.items.flatMap((item) => item.tags))].slice(0, 5);
+      const tags = [...new Set(cluster.items.map((item) => item.primaryTag))].slice(0, 5);
       const terms = topTerms(cluster.items.map((item) => item.vector), tags);
       const name = tags.includes('기타') && terms.length ? `유사 반응 ${index + 1}: ${terms.join(', ')}` : tags.slice(0, 2).join(' + ');
       const similarities = cluster.items.map((item) => cosine(item.vector, cluster.centroid));
@@ -306,10 +388,10 @@ export function analyzeTrendData(
     chunkSummaries,
     topInsights: [
       top ? `가장 큰 유사 반응 묶음은 "${top.name}"이며 ${top.count}건입니다.` : '',
-      riskCluster ? `"${riskCluster.name}" 묶음의 부정 비율이 ${riskCluster.sentimentRatio}%라서 우선 확인이 필요합니다.` : '',
-      tagSummary[0] ? `가장 많이 붙은 이슈 태그는 "${tagSummary[0].tag}" (${tagSummary[0].count}건)입니다.` : '',
+      riskCluster ? `"${riskCluster.name}" 묶음은 부정 비율이 ${riskCluster.sentimentRatio}%라 우선 확인이 필요합니다.` : '',
+      tagSummary[0] ? `가장 많이 붙은 대표 이슈 태그는 "${tagSummary[0].tag}" (${tagSummary[0].count}건)입니다.` : '',
       themes[0] ? `주요 건의 사항: ${themes[0].userRequests[0]}` : '',
-      applyToAnalysis ? `동향 신호가 판단 근거 강도에 ${rawAdjustment > 0 ? '+' : ''}${rawAdjustment}%p 반영됩니다.` : '동향 신호는 화면에만 표시되고 판단 근거 강도에는 반영되지 않습니다.',
+      applyToAnalysis ? `동향 신호가 판단 근거 강도에 ${rawAdjustment > 0 ? '+' : ''}${rawAdjustment}%p 반영됩니다.` : '동향 신호는 화면에만 표시하고 판단 근거 강도에는 반영하지 않습니다.',
     ].filter(Boolean),
     overallSentiment,
     confidenceAdjustment: applyToAnalysis ? rawAdjustment : 0,
@@ -317,7 +399,8 @@ export function analyzeTrendData(
     applyToAnalysis,
     warnings: sourceWarnings,
     tagSummary,
-    methodDescription: 'Gemini 호출 없이 브라우저에서 텍스트 토큰 벡터를 만들고 코사인 유사도로 묶는 로컬 클러스터링입니다.',
+    methodDescription:
+      '브라우저에서 텍스트 토큰 벡터 유사도로 1차 군집화하고, 표시용 집계는 리뷰 1건당 대표 테마 1개로 중복 없이 계산합니다. Gemini 최종 분석에는 대표 테마 건수, 부정 비율, 실제 대표 문장을 함께 전달합니다.',
   };
 }
 

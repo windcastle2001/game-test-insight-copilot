@@ -176,7 +176,10 @@ function trendThemeLines(trendData?: TrendAnalysisResult | null): string {
   if (!trendData || trendData.themes.length === 0) return '- 동향 테마 요약 없음';
   return trendData.themes
     .slice(0, 8)
-    .map((theme) => `- ${theme.tag}: ${theme.count}건, 부정 ${theme.negativeRatio}%, 출처 ${theme.sources.join('/')}. 건의: ${theme.userRequests.join(' ')} 시사점: ${theme.decisionImplication}`)
+    .map((theme) => {
+      const examples = theme.representativeTexts.slice(0, 3).map((text) => `"${text}"`).join(' / ');
+      return `- ${theme.tag}: ${theme.count}건, 부정 ${theme.negativeRatio}%, 출처 ${theme.sources.join('/')}. 대표 원문: ${examples}. 건의: ${theme.userRequests.join(' ')} 시사점: ${theme.decisionImplication}`;
+    })
     .join('\n');
 }
 
@@ -281,6 +284,8 @@ function buildPrompt(
 - experimentPlan은 각각 어떤 연결 가설을 검증하는 실험인지 targetKpi와 expectedImpactKor에 드러나야 한다.
 - 동향은 단순 클러스터 이름만 보지 말고, 아래 동향 테마 요약의 건수/부정 비율/건의 사항을 의사결정 근거에 반영하라.
 - 동향 건수가 많을 때는 청크 요약을 종합해 반복적으로 나타나는 요청을 우선순위화하라.
+- 동향 테마 요약은 브라우저가 리뷰 1건당 대표 테마 1개로 중복 없이 선집계한 자료다. 너는 대표 원문까지 읽고 AI 관점에서 테마를 다시 해석해 최종 결론과 액션에 연결하라.
+- decisionReasons와 aiInsight에는 최소 2개 이상 동향 테마의 건수, 부정 비율, 대표 원문에서 드러난 문제를 KPI와 연결해서 써라.
 
 게임: ${data.gameName}
 장르: ${data.gameGenre}
